@@ -1,22 +1,4 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package org.apache.flink.runtime.entrypoint;
+package org.apache.flink.streaming.controlplane.entrypoint;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.BlobServerOptions;
@@ -44,6 +26,14 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.dispatcher.ExecutionGraphInfoStore;
 import org.apache.flink.runtime.dispatcher.MiniDispatcher;
+import org.apache.flink.runtime.entrypoint.ClusterEntryPointExceptionUtils;
+import org.apache.flink.runtime.entrypoint.ClusterEntrypointException;
+import org.apache.flink.runtime.entrypoint.ClusterEntrypointUtils;
+import org.apache.flink.runtime.entrypoint.DeterminismEnvelope;
+import org.apache.flink.runtime.entrypoint.EntrypointClusterConfiguration;
+import org.apache.flink.runtime.entrypoint.EntrypointClusterConfigurationParserFactory;
+import org.apache.flink.runtime.entrypoint.FlinkParseException;
+import org.apache.flink.runtime.entrypoint.WorkingDirectory;
 import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponent;
 import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponentFactory;
 import org.apache.flink.runtime.entrypoint.parser.CommandLineParser;
@@ -107,14 +97,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>Specialization of this class can be used for the session mode and the per-job mode
  */
-public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErrorHandler {
+public abstract class ClusterControllerEntrypoint implements AutoCloseableAsync, FatalErrorHandler {
 
     public static final ConfigOption<String> INTERNAL_CLUSTER_EXECUTION_MODE =
             ConfigOptions.key("internal.cluster.execution-mode")
                     .stringType()
                     .defaultValue(ExecutionMode.NORMAL.toString());
 
-    protected static final Logger LOG = LoggerFactory.getLogger(ClusterEntrypoint.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(ClusterControllerEntrypoint.class);
 
     protected static final int STARTUP_FAILURE_RETURN_CODE = 1;
     protected static final int RUNTIME_FAILURE_RETURN_CODE = 2;
@@ -168,7 +158,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     private final Thread shutDownHook;
     private RpcSystem rpcSystem;
 
-    protected ClusterEntrypoint(Configuration configuration) {
+    protected ClusterControllerEntrypoint(Configuration configuration) {
         this.configuration = generateClusterConfiguration(configuration);
         this.terminationFuture = new CompletableFuture<>();
 
@@ -189,7 +179,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
     public int getRestPort() {
         synchronized (lock) {
-            assertClusterEntrypointIsStarted();
+            assertClusterControllerEntrypointIsStarted();
 
             return clusterComponent.getRestPort();
         }
@@ -197,14 +187,14 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
     public int getRpcPort() {
         synchronized (lock) {
-            assertClusterEntrypointIsStarted();
+            assertClusterControllerEntrypointIsStarted();
 
             return commonRpcService.getPort();
         }
     }
 
     @GuardedBy("lock")
-    private void assertClusterEntrypointIsStarted() {
+    private void assertClusterControllerEntrypointIsStarted() {
         Preconditions.checkNotNull(
                 commonRpcService,
                 String.format("%s has not been started yet.", getClass().getSimpleName()));
@@ -214,9 +204,9 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
         return terminationFuture;
     }
 
-    public void startCluster() throws ClusterEntrypointException {
+    public void startClusterController() throws ClusterEntrypointException {
         LOG.info("Starting {}.", getClass().getSimpleName());
-        LOG.info("++++++ Hello Trisk on original MVN settings @ ClusterEntrypoint");
+        LOG.info("++++++ Hello Trisk @ ClusterControllerEntrypoint");
         try {
             FlinkSecurityManager.setFromConfiguration(configuration);
             PluginManager pluginManager =
@@ -229,7 +219,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
             securityContext.runSecured(
                     (Callable<Void>)
                             () -> {
-                                runCluster(configuration, pluginManager);
+                                runClusterController(configuration, pluginManager);
 
                                 return null;
                             });
@@ -276,7 +266,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
         return SecurityUtils.getInstalledContext();
     }
 
-    private void runCluster(Configuration configuration, PluginManager pluginManager)
+    private void runClusterController(Configuration configuration, PluginManager pluginManager)
             throws Exception {
         synchronized (lock) {
             initializeServices(configuration, pluginManager);
@@ -632,7 +622,8 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     }
 
     /**
-     * Clean up of temporary directories created by the {@link ClusterEntrypoint}.
+     * Clean up of temporary directories created by the {@link
+     * org.apache.flink.runtime.entrypoint.ClusterEntrypoint}.
      *
      * @param shutdownBehaviour specifying the shutdown behaviour
      * @throws IOException if the temporary directories could not be cleaned up
@@ -722,14 +713,16 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     // Helper methods
     // --------------------------------------------------
 
-    public static void runClusterEntrypoint(ClusterEntrypoint clusterEntrypoint) {
+    public static void runClusterControllerEntrypoint(ClusterControllerEntrypoint clusterEntrypoint) {
 
-        final String clusterEntrypointName = clusterEntrypoint.getClass().getSimpleName();
+        final String clusterControllerEntrypointName = clusterEntrypoint.getClass().getSimpleName();
         try {
-            clusterEntrypoint.startCluster();
+            clusterEntrypoint.startClusterController();
         } catch (ClusterEntrypointException e) {
             LOG.error(
-                    String.format("Could not start cluster entrypoint %s.", clusterEntrypointName),
+                    String.format(
+                            "Could not start cluster controller entrypoint %s.",
+                            clusterControllerEntrypointName),
                     e);
             System.exit(STARTUP_FAILURE_RETURN_CODE);
         }
@@ -746,7 +739,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
         LOG.info(
                 "Terminating cluster entrypoint process {} with exit code {}.",
-                clusterEntrypointName,
+                clusterControllerEntrypointName,
                 returnCode,
                 throwable);
         System.exit(returnCode);
@@ -761,7 +754,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
         DETACHED
     }
 
-    /** Shutdown behaviour of a {@link ClusterEntrypoint}. */
+    /** Shutdown behaviour of a {@link org.apache.flink.runtime.entrypoint.ClusterEntrypoint}. */
     protected enum ShutdownBehaviour {
         // Graceful shutdown means that the process wants to terminate and will clean everything up
         GRACEFUL_SHUTDOWN,

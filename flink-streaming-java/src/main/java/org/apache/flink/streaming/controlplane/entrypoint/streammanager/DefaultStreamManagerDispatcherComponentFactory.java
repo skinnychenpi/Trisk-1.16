@@ -88,6 +88,7 @@ public class DefaultStreamManagerDispatcherComponentFactory implements StreamMan
                     configuration.getInteger(RestOptions.SERVER_THREAD_PRIORITY),
                     "DispatcherRestEndpoint");
 
+            // Create and start SM Rest Endpoint.
             smWebMonitorEndpoint = smRestEndpointFactory.createRestEndpoint(
                     configuration,
                     smDispatcherGatewayRetriever,
@@ -106,6 +107,7 @@ public class DefaultStreamManagerDispatcherComponentFactory implements StreamMan
                     heartbeatServices,
                     fatalErrorHandler);
 
+            // Create and Start SM Dispatcher
             log.debug("Starting sm Dispatcher.");
             smDispatcherRunner = smDispatcherRunnerFactory.createStreamManagerDispatcherRunner(
                     highAvailabilityServices.getStreamManagerDispatcherLeaderElectionService(),

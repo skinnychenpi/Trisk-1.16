@@ -95,6 +95,11 @@ public class TestingManualHighAvailabilityServices implements HighAvailabilitySe
     }
 
     @Override
+    public LeaderElectionService getStreamManagerDispatcherLeaderElectionService() {
+        return null;
+    }
+
+    @Override
     public LeaderElectionService getJobManagerLeaderElectionService(JobID jobID) {
         ManualLeaderService leaderService = getOrCreateJobManagerLeaderService(jobID);
 
@@ -178,5 +183,10 @@ public class TestingManualHighAvailabilityServices implements HighAvailabilitySe
         }
 
         return manualLeaderService;
+    }
+
+    @Override
+    public LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever() {
+        return null;
     }
 }

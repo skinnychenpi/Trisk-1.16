@@ -250,4 +250,14 @@ public class KubernetesMultipleComponentLeaderElectionHaServices extends Abstrac
     protected String getLeaderPathForRestServer() {
         return "restserver";
     }
+
+    @Override
+    public LeaderElectionService getStreamManagerDispatcherLeaderElectionService() {
+        return null;
+    }
+
+    @Override
+    public LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever() {
+        return null;
+    }
 }

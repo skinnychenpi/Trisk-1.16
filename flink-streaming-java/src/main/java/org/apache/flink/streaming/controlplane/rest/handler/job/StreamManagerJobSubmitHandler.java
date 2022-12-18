@@ -74,7 +74,7 @@ public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRe
     }
 
     @Override
-    protected CompletableFuture<JobSubmitResponseBody> handleRequest(@Nonnull HandlerRequest<JobSubmitRequestBody, EmptyMessageParameters> request, @Nonnull StreamManagerDispatcherGateway gateway) throws RestHandlerException {
+    protected CompletableFuture<JobSubmitResponseBody> handleRequest(@Nonnull HandlerRequest<JobSubmitRequestBody> request, @Nonnull StreamManagerDispatcherGateway gateway) throws RestHandlerException {
         final Collection<File> uploadedFiles = request.getUploadedFiles();
         final Map<String, Path> nameToFile = uploadedFiles.stream().collect(Collectors.toMap(
                 File::getName,

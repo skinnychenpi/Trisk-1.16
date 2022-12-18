@@ -2,6 +2,7 @@ package org.apache.flink.streaming.controlplane.entrypoint.streammanager;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobServer;
+import org.apache.flink.runtime.dispatcher.ExecutionGraphInfoStore;
 import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponent;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
@@ -22,5 +23,6 @@ public interface StreamManagerDispatcherComponentFactory {
             HighAvailabilityServices highAvailabilityServices,
             BlobServer blobServer,
             HeartbeatServices heartbeatServices,
-            FatalErrorHandler fatalErrorHandler) throws Exception;
+            FatalErrorHandler fatalErrorHandler,
+            ExecutionGraphInfoStore executionGraphInfoStore) throws Exception;
 }

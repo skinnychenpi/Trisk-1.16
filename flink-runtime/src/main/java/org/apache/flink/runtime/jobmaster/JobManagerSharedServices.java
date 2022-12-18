@@ -163,6 +163,7 @@ public class JobManagerSharedServices {
                                 alwaysParentFirstLoaderPatterns,
                                 failOnJvmMetaspaceOomError ? fatalErrorHandler : null,
                                 checkClassLoaderLeak));
+        sharedLibraryCacheManager = libraryCacheManager;
 
         final int numberCPUCores = Hardware.getNumberCPUCores();
         final int jobManagerFuturePoolSize =
@@ -186,5 +187,40 @@ public class JobManagerSharedServices {
 
         return new JobManagerSharedServices(
                 futureExecutor, ioExecutor, libraryCacheManager, shuffleMaster, blobServer);
+    }
+
+    private static LibraryCacheManager sharedLibraryCacheManager;
+
+    public static JobManagerSharedServices fromConfigurationForStreamManager(
+            Configuration config, BlobServer blobServer, FatalErrorHandler fatalErrorHandler)
+            throws Exception {
+
+        checkNotNull(config);
+        checkNotNull(blobServer);
+        checkNotNull(sharedLibraryCacheManager);
+
+
+        final int numberCPUCores = Hardware.getNumberCPUCores();
+        final int jobManagerFuturePoolSize =
+                config.getInteger(JobManagerOptions.JOB_MANAGER_FUTURE_POOL_SIZE, numberCPUCores);
+        final ScheduledExecutorService futureExecutor =
+                Executors.newScheduledThreadPool(
+                        jobManagerFuturePoolSize, new ExecutorThreadFactory("StreamManager-future"));
+
+        final int jobManagerIoPoolSize =
+                config.getInteger(JobManagerOptions.JOB_MANAGER_IO_POOL_SIZE, numberCPUCores);
+        final ExecutorService ioExecutor =
+                Executors.newFixedThreadPool(
+                        jobManagerIoPoolSize, new ExecutorThreadFactory("StreamManager-io"));
+
+        final ShuffleMasterContext shuffleMasterContext =
+                new ShuffleMasterContextImpl(config, fatalErrorHandler);
+        final ShuffleMaster<?> shuffleMaster =
+                ShuffleServiceLoader.loadShuffleServiceFactory(config)
+                        .createShuffleMaster(shuffleMasterContext);
+        shuffleMaster.start();
+
+        return new JobManagerSharedServices(
+                futureExecutor, ioExecutor, sharedLibraryCacheManager, shuffleMaster, blobServer);
     }
 }

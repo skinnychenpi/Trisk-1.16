@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /**
  * Component which starts a {@link Dispatcher}, {@link ResourceManager} and {@link WebMonitorEndpoint}
@@ -86,6 +87,83 @@ public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
         }
     }
 
+//    private CompletableFuture<Void> closeAsyncInternal() {
+//        LOG.info("Closing components.");
+//
+//        Exception exception = null;
+//
+//        final Collection<CompletableFuture<Void>> terminationFutures = new ArrayList<>(3);
+//
+//        try {
+//            smDispatcherLeaderRetrievalService.stop();
+//        } catch (Exception e) {
+//            exception = ExceptionUtils.firstOrSuppressed(e, exception);
+//        }
+//
+//        terminationFutures.add(smDispatcherRunner.closeAsync());
+//
+//        if (exception != null) {
+//            terminationFutures.add(FutureUtils.completedExceptionally(exception));
+//        }
+//
+//        final CompletableFuture<Void> componentTerminationFuture = FutureUtils.completeAll(terminationFutures);
+//
+//        componentTerminationFuture.whenComplete((aVoid, throwable) -> {
+//            if (throwable != null) {
+//                terminationFuture.completeExceptionally(throwable);
+//            } else {
+//                terminationFuture.complete(aVoid);
+//            }
+//        });
+//
+//        return terminationFuture;
+//    }
+
+    @Override
+    public CompletableFuture<Void> closeAsync() {
+        return stopApplication(ApplicationStatus.CANCELED, "StreamManagerDispatcherComponent has been closed.");
+    }
+
+    /**
+     * Deregister the Flink application from the resource management system by signalling the {@link
+     * ResourceManager} and also stop the process.
+     *
+     * @param applicationStatus to terminate the application with
+     * @param diagnostics additional information about the shut down, can be {@code null}
+     * @return Future which is completed once the shut down
+     */
+    public CompletableFuture<Void> stopApplication(
+            final ApplicationStatus applicationStatus, final @Nullable String diagnostics) {
+        return internalShutdown(FutureUtils::completedVoidFuture);
+    }
+
+    /**
+     * Close the web monitor and cluster components. This method will not deregister the Flink
+     * application from the resource management and only stop the process.
+     *
+     * @return Future which is completed once the shut down
+     */
+    public CompletableFuture<Void> stopProcess() {
+        return internalShutdown(FutureUtils::completedVoidFuture);
+    }
+
+    private CompletableFuture<Void> internalShutdown(
+            final Supplier<CompletableFuture<?>> additionalShutdownAction) {
+        if (isRunning.compareAndSet(true, false)) {
+//            final CompletableFuture<Void> operationsConsumedFuture =
+//                    dispatcherOperationCaches.shutdownCaches();
+            final CompletableFuture<Void> webMonitorShutdownFuture = smWebMonitorEndpoint.closeAsync();
+//            final CompletableFuture<Void> closeWebMonitorAndAdditionalShutdownActionFuture =
+//                    FutureUtils.composeAfterwards(
+//                            webMonitorShutdownFuture, additionalShutdownAction);
+
+            return FutureUtils.composeAfterwards(
+                    webMonitorShutdownFuture, this::closeAsyncInternal);
+        } else {
+            return terminationFuture;
+        }
+    }
+
     private CompletableFuture<Void> closeAsyncInternal() {
         LOG.info("Closing components.");
 
@@ -99,27 +177,33 @@ public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
             exception = ExceptionUtils.firstOrSuppressed(e, exception);
         }
 
+//        try {
+//            resourceManagerRetrievalService.stop();
+//        } catch (Exception e) {
+//            exception = ExceptionUtils.firstOrSuppressed(e, exception);
+//        }
+
         terminationFutures.add(smDispatcherRunner.closeAsync());
+
+//        terminationFutures.add(resourceManagerService.closeAsync());
 
         if (exception != null) {
             terminationFutures.add(FutureUtils.completedExceptionally(exception));
         }
 
-        final CompletableFuture<Void> componentTerminationFuture = FutureUtils.completeAll(terminationFutures);
+        final CompletableFuture<Void> componentTerminationFuture =
+                FutureUtils.completeAll(terminationFutures);
 
-        componentTerminationFuture.whenComplete((aVoid, throwable) -> {
-            if (throwable != null) {
-                terminationFuture.completeExceptionally(throwable);
-            } else {
-                terminationFuture.complete(aVoid);
-            }
-        });
+        componentTerminationFuture.whenComplete(
+                (aVoid, throwable) -> {
+                    if (throwable != null) {
+                        terminationFuture.completeExceptionally(throwable);
+                    } else {
+                        terminationFuture.complete(aVoid);
+                    }
+                });
 
         return terminationFuture;
     }
 
-    @Override
-    public CompletableFuture<Void> closeAsync() {
-        return deregisterApplicationAndClose(ApplicationStatus.CANCELED, "StreamManagerDispatcherComponent has been closed.");
-    }
 }

@@ -248,4 +248,16 @@ public interface HighAvailabilityServices
     default CompletableFuture<Void> globalCleanupAsync(JobID jobId, Executor executor) {
         return FutureUtils.completedVoidFuture();
     }
+    /**
+     * Gets the leader election service for the cluster's stream manager dispatcher.
+     *
+     * @return Leader election service for the dispatcher leader election
+     */
+    LeaderElectionService getStreamManagerDispatcherLeaderElectionService();
+
+    /**
+     * Gets the leader retriever for the dispatcher. This leader retrieval service
+     * is not always accessible.
+     */
+    LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever();
 }

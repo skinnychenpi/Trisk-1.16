@@ -86,6 +86,16 @@ public class EmbeddedHaServices extends AbstractNonHaServices {
     }
 
     @Override
+    public LeaderElectionService getStreamManagerDispatcherLeaderElectionService() {
+        return null;
+    }
+
+    @Override
+    public LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever() {
+        return null;
+    }
+
+    @Override
     public LeaderRetrievalService getJobManagerLeaderRetriever(JobID jobID) {
         checkNotNull(jobID);
 

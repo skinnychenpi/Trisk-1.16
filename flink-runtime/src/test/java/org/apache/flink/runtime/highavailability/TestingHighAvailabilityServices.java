@@ -223,6 +223,11 @@ public class TestingHighAvailabilityServices implements HighAvailabilityServices
     }
 
     @Override
+    public LeaderElectionService getStreamManagerDispatcherLeaderElectionService() {
+        return null;
+    }
+
+    @Override
     public LeaderElectionService getJobManagerLeaderElectionService(JobID jobID) {
         LeaderElectionService service =
                 jobManagerLeaderElectionServices.computeIfAbsent(
@@ -293,5 +298,10 @@ public class TestingHighAvailabilityServices implements HighAvailabilityServices
         }
 
         return FutureUtils.completedVoidFuture();
+    }
+
+    @Override
+    public LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever() {
+        return null;
     }
 }

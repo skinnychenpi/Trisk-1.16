@@ -130,9 +130,16 @@ public class HighAvailabilityServicesUtils {
                                 configuration);
                 final String webMonitorAddress =
                         getWebMonitorAddress(configuration, addressResolution);
+                final String smDispatcherRpcUrl = rpcSystemUtils.getRpcUrl(
+                        hostnamePort.f0,
+                        hostnamePort.f1,
+//					StreamManagerDispatcher.DISPATCHER_NAME,
+                        "smDispatcher",
+                        addressResolution,
+                        configuration);
 
                 return new StandaloneHaServices(
-                        resourceManagerRpcUrl, dispatcherRpcUrl, webMonitorAddress);
+                        resourceManagerRpcUrl, dispatcherRpcUrl, webMonitorAddress, smDispatcherRpcUrl);
             case ZOOKEEPER:
                 return createZooKeeperHaServices(configuration, executor, fatalErrorHandler);
             case KUBERNETES:

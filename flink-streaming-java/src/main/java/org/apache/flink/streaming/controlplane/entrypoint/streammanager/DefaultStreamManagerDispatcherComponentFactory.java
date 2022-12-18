@@ -4,6 +4,8 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.blob.BlobServer;
+import org.apache.flink.runtime.jobmanager.HaServicesJobPersistenceComponentFactory;
+import org.apache.flink.util.concurrent.FixedRetryStrategy;
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 import org.apache.flink.streaming.controlplane.dispatcher.SessionStreamManagerDispatcherFactory;
@@ -21,7 +23,7 @@ import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerCo
 import org.apache.flink.runtime.entrypoint.component.JobGraphRetriever;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
-import org.apache.flink.runtime.jobmanager.HaServicesJobGraphStoreFactory;       // Refer to HaServicesJobPersistenceComponentFactory.java
+//import org.apache.flink.runtime.jobmanager.HaServicesJobGraphStoreFactory;       // Refer to HaServicesJobPersistenceComponentFactory.java
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -33,6 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -67,7 +71,8 @@ public class DefaultStreamManagerDispatcherComponentFactory implements StreamMan
             HighAvailabilityServices highAvailabilityServices,
             BlobServer blobServer,
             HeartbeatServices heartbeatServices,
-            FatalErrorHandler fatalErrorHandler) throws Exception {
+            FatalErrorHandler fatalErrorHandler,
+            ExecutionGraphInfoStore executionGraphInfoStore) throws Exception {
 
         LeaderRetrievalService smDispatcherLeaderRetrievalService = null;
         StreamManagerWebMonitorEndpoint<?> smWebMonitorEndpoint = null;
@@ -80,8 +85,7 @@ public class DefaultStreamManagerDispatcherComponentFactory implements StreamMan
                     rpcService,
                     StreamManagerDispatcherGateway.class,
                     StreamManagerDispatcherId::fromUuid,
-                    10,
-                    Time.milliseconds(50L));
+                    new FixedRetryStrategy(10, Duration.ofMillis(50L)));
 
             final ScheduledExecutorService executor = StreamManagerWebMonitorEndpoint.createExecutorService(
                     configuration.getInteger(RestOptions.SERVER_NUM_THREADS),
@@ -100,19 +104,26 @@ public class DefaultStreamManagerDispatcherComponentFactory implements StreamMan
             log.debug("Starting StreamManagerDispatcher REST endpoint.");
             smWebMonitorEndpoint.start();
 
+            final HistoryServerArchivist historyServerArchivist =
+                    HistoryServerArchivist.createHistoryServerArchivist(
+                            configuration, smWebMonitorEndpoint, ioExecutor);
+
             final PartialStreamManagerDispatcherServices partialSmDispatcherServices = new PartialStreamManagerDispatcherServices(
                     configuration,
                     highAvailabilityServices,
                     blobServer,
                     heartbeatServices,
-                    fatalErrorHandler);
+                    fatalErrorHandler,
+                    historyServerArchivist,
+                    ioExecutor,
+                    executionGraphInfoStore);
 
             // Create and Start SM Dispatcher
             log.debug("Starting sm Dispatcher.");
             smDispatcherRunner = smDispatcherRunnerFactory.createStreamManagerDispatcherRunner(
                     highAvailabilityServices.getStreamManagerDispatcherLeaderElectionService(),
                     fatalErrorHandler,
-                    new HaServicesJobGraphStoreFactory(highAvailabilityServices),
+                    new HaServicesJobPersistenceComponentFactory(highAvailabilityServices),
                     ioExecutor,
                     rpcService,
                     partialSmDispatcherServices

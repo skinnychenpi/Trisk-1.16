@@ -66,7 +66,7 @@ public abstract class AbstractStreamManagerRestHandler<T extends StreamManagerRe
     }
 
     @Override
-    protected CompletableFuture<Void> respondToRequest(ChannelHandlerContext ctx, HttpRequest httpRequest, HandlerRequest<R, M> handlerRequest, T gateway) {
+    protected CompletableFuture<Void> respondToRequest(ChannelHandlerContext ctx, HttpRequest httpRequest, HandlerRequest<R> handlerRequest, T gateway) {
         CompletableFuture<P> response;
 
         try {

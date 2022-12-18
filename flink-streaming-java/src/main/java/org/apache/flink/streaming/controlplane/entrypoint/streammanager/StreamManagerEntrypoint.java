@@ -14,6 +14,8 @@ import org.apache.flink.configuration.JMXServerOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SchedulerExecutionMode;
+import org.apache.flink.configuration.StreamManagerOptions;
+import org.apache.flink.configuration.StreamManagerRestOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.plugin.PluginManager;
@@ -34,17 +36,10 @@ import org.apache.flink.runtime.entrypoint.EntrypointClusterConfiguration;
 import org.apache.flink.runtime.entrypoint.EntrypointClusterConfigurationParserFactory;
 import org.apache.flink.runtime.entrypoint.FlinkParseException;
 import org.apache.flink.runtime.entrypoint.WorkingDirectory;
-import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponent;
-import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponentFactory;
 import org.apache.flink.runtime.entrypoint.parser.CommandLineParser;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
-import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
-import org.apache.flink.runtime.metrics.MetricRegistryImpl;
-import org.apache.flink.runtime.metrics.ReporterSetup;
-import org.apache.flink.runtime.metrics.groups.ProcessMetricGroup;
-import org.apache.flink.runtime.metrics.util.MetricUtils;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.rpc.AddressResolution;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -58,7 +53,6 @@ import org.apache.flink.runtime.security.contexts.SecurityContext;
 import org.apache.flink.runtime.security.token.DelegationTokenManager;
 import org.apache.flink.runtime.security.token.KerberosDelegationTokenManagerFactory;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
-import org.apache.flink.runtime.webmonitor.retriever.impl.RpcMetricQueryServiceRetriever;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
@@ -153,7 +147,7 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
     @GuardedBy("lock")
     private DeterminismEnvelope<WorkingDirectory> workingDirectory;
 
-//    private ExecutionGraphInfoStore executionGraphInfoStore;
+    private ExecutionGraphInfoStore executionGraphInfoStore;
 
     private final Thread shutDownHook;
     private RpcSystem rpcSystem;
@@ -162,7 +156,7 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
         this.configuration = generateClusterConfiguration(configuration);
         this.terminationFuture = new CompletableFuture<>();
 
-        if (configuration.get(JobManagerOptions.SCHEDULER_MODE) == SchedulerExecutionMode.REACTIVE
+        if (configuration.get(StreamManagerOptions.SCHEDULER_MODE) == SchedulerExecutionMode.REACTIVE
                 && !supportsReactiveMode()) {
             final String msg =
                     "++++++ Trisk@StreamManagerEntrypoint: Reactive mode is configured for an unsupported cluster type. At the moment, reactive mode is only supported by standalone application clusters (bin/standalone-job.sh).";
@@ -177,13 +171,13 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
                         () -> this.closeAsync().join(), getClass().getSimpleName(), LOG);
     }
 
-    public int getRestPort() {
-        synchronized (lock) {
-            assertClusterEntrypointIsStarted();
-
-            return smComponent.getRestPort();
-        }
-    }
+//    public int getRestPort() {
+//        synchronized (lock) {
+//            assertClusterEntrypointIsStarted();
+//
+//            return smComponent.getRestPort();
+//        }
+//    }
 
     public int getRpcPort() {
         synchronized (lock) {
@@ -276,19 +270,19 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
             configuration.setInteger(StreamManagerOptions.PORT, commonRpcService.getPort());
 
             final StreamManagerDispatcherComponentFactory
-                    smDispathcerComponentFactory =
+                    smDispatcherComponentFactory =
                     createStreamManagerDispatcherComponentFactory(configuration);
 
             smComponent =
                     smDispatcherComponentFactory.create(
                             configuration,
-                            resourceId.unwrap(),
                             ioExecutor,
                             commonRpcService,
                             haServices,
                             blobServer,
                             heartbeatServices,
-                            delegationTokenManager);
+                            this,
+                            executionGraphInfoStore);
 
             smComponent
                     .getShutDownFuture()
@@ -398,9 +392,9 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
 //                            ConfigurationUtils.getSystemResourceMetricsProbingInterval(
 //                                    configuration));
 //
-//            executionGraphInfoStore =
-//                    createSerializableExecutionGraphStore(
-//                            configuration, commonRpcService.getScheduledExecutor());
+            executionGraphInfoStore =
+                    createSerializableExecutionGraphStore(
+                            configuration, commonRpcService.getScheduledExecutor());
         }
     }
 
@@ -686,7 +680,7 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
         if (restPort >= 0) {
             LOG.warn(
                     "++++++ @SMEntrypoint The 'webui-port' parameter of 'jobmanager.sh' has been deprecated. Please use '-D {}=<port> instead.",
-                    RestOptions.PORT);
+                    StreamManagerRestOptions.PORT);
             configuration.setInteger(StreamManagerRestOptions.PORT, restPort);
         }
 

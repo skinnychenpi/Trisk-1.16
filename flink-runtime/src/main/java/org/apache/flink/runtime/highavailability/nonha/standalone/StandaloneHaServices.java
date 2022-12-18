@@ -47,6 +47,9 @@ public class StandaloneHaServices extends AbstractNonHaServices {
 
     private final String clusterRestEndpointAddress;
 
+    /** The fix address of the streammanager Dispatcher */
+    private final String smDispatcherAddress;
+
     /**
      * Creates a new services class for the fix pre-defined leaders.
      *
@@ -56,12 +59,14 @@ public class StandaloneHaServices extends AbstractNonHaServices {
     public StandaloneHaServices(
             String resourceManagerAddress,
             String dispatcherAddress,
-            String clusterRestEndpointAddress) {
+            String clusterRestEndpointAddress,
+            String smDispatcherAddress) {
         this.resourceManagerAddress =
                 checkNotNull(resourceManagerAddress, "resourceManagerAddress");
         this.dispatcherAddress = checkNotNull(dispatcherAddress, "dispatcherAddress");
         this.clusterRestEndpointAddress =
                 checkNotNull(clusterRestEndpointAddress, clusterRestEndpointAddress);
+        this.smDispatcherAddress = checkNotNull(smDispatcherAddress, "smDispatcherAddress");
     }
 
     // ------------------------------------------------------------------------
@@ -101,6 +106,24 @@ public class StandaloneHaServices extends AbstractNonHaServices {
             checkNotShutdown();
 
             return new StandaloneLeaderElectionService();
+        }
+    }
+
+    @Override
+    public LeaderElectionService getStreamManagerDispatcherLeaderElectionService() {
+        synchronized (lock) {
+            checkNotShutdown();
+
+            return new StandaloneLeaderElectionService();
+        }
+    }
+
+    @Override
+    public LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever() {
+        synchronized (lock) {
+            checkNotShutdown();
+
+            return new StandaloneLeaderRetrievalService(smDispatcherAddress, DEFAULT_LEADER_ID);
         }
     }
 

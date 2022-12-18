@@ -428,6 +428,16 @@ public class SSLUtils {
         }
     }
 
+    // Add for Trisk 1.16
+    /**
+     * Checks whether SSL for the external REST endpoint is enabled.
+     */
+    public static boolean isRestSSLEnabled(Configuration sslConfig) {
+        @SuppressWarnings("deprecation")
+        final boolean fallbackFlag = sslConfig.getBoolean(SecurityOptions.SSL_ENABLED);
+        return sslConfig.getBoolean(SecurityOptions.SSL_REST_ENABLED, fallbackFlag);
+    }
+
     // ------------------------------------------------------------------------
     //  Wrappers for socket factories that additionally configure the sockets
     // ------------------------------------------------------------------------

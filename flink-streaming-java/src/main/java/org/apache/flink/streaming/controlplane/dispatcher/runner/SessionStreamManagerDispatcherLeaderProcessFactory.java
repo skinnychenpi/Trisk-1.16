@@ -19,25 +19,27 @@
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
 import org.apache.flink.runtime.dispatcher.runner.SessionDispatcherLeaderProcess;
-//import org.apache.flink.runtime.jobmanager.JobGraphStoreFactory;
 import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 
 import java.util.UUID;
 import java.util.concurrent.Executor;
 
-/**
- * Factory for the {@link SessionDispatcherLeaderProcess}.
- */
-class SessionStreamManagerDispatcherLeaderProcessFactory implements StreamManagerDispatcherLeaderProcessFactory {
+/** Factory for the {@link SessionDispatcherLeaderProcess}. */
+class SessionStreamManagerDispatcherLeaderProcessFactory
+        implements StreamManagerDispatcherLeaderProcessFactory {
 
-    private final AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayServiceFactory dispatcherGatewayServiceFactory;
+    private final AbstractStreamManagerDispatcherLeaderProcess
+                    .StreamManagerDispatcherGatewayServiceFactory
+            dispatcherGatewayServiceFactory;
     private final JobPersistenceComponentFactory jobPersistenceComponentFactory;
     private final Executor ioExecutor;
     private final FatalErrorHandler fatalErrorHandler;
 
     SessionStreamManagerDispatcherLeaderProcessFactory(
-            AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayServiceFactory dispatcherGatewayServiceFactory,
+            AbstractStreamManagerDispatcherLeaderProcess
+                            .StreamManagerDispatcherGatewayServiceFactory
+                    dispatcherGatewayServiceFactory,
             JobPersistenceComponentFactory jobPersistenceComponentFactory,
             Executor ioExecutor,
             FatalErrorHandler fatalErrorHandler) {

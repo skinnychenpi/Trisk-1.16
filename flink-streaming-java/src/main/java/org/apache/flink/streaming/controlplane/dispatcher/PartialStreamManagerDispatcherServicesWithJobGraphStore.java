@@ -30,13 +30,11 @@ import javax.annotation.Nonnull;
 
 import java.util.concurrent.Executor;
 
-/**
- * {@link DispatcherFactory} services container.
- */
-public class PartialStreamManagerDispatcherServicesWithJobGraphStore extends PartialStreamManagerDispatcherServices {
+/** {@link DispatcherFactory} services container. */
+public class PartialStreamManagerDispatcherServicesWithJobGraphStore
+        extends PartialStreamManagerDispatcherServices {
 
-    @Nonnull
-    private final JobGraphWriter jobGraphWriter;
+    @Nonnull private final JobGraphWriter jobGraphWriter;
 
     public PartialStreamManagerDispatcherServicesWithJobGraphStore(
             @Nonnull Configuration configuration,
@@ -65,7 +63,9 @@ public class PartialStreamManagerDispatcherServicesWithJobGraphStore extends Par
         return jobGraphWriter;
     }
 
-    public static PartialStreamManagerDispatcherServicesWithJobGraphStore from(PartialStreamManagerDispatcherServices partialDispatcherServices, JobGraphWriter jobGraphWriter) {
+    public static PartialStreamManagerDispatcherServicesWithJobGraphStore from(
+            PartialStreamManagerDispatcherServices partialDispatcherServices,
+            JobGraphWriter jobGraphWriter) {
         return new PartialStreamManagerDispatcherServicesWithJobGraphStore(
                 partialDispatcherServices.getConfiguration(),
                 partialDispatcherServices.getHighAvailabilityServices(),

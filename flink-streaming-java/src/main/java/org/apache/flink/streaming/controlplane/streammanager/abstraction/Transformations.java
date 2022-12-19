@@ -8,9 +8,7 @@ public class Transformations {
     // operator -> tasks
     private Map<Integer, List<Integer>> tasks;
 
-    public Transformations() {
-
-    }
+    public Transformations() {}
 
     public void add(String operation, Map<Integer, List<Integer>> transformation) {
         transformations.put(operation, transformation);

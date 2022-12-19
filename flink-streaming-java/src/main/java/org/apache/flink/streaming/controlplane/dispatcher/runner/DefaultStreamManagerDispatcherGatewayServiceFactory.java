@@ -18,21 +18,18 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
-import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
-import org.apache.flink.streaming.controlplane.dispatcher.*;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.JobGraphWriter;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.streaming.controlplane.dispatcher.*;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Collection;
 
-/**
- * Factory for the {@link DefaultStreamManagerDispatcherGatewayService}.
- */
-class DefaultStreamManagerDispatcherGatewayServiceFactory implements AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayServiceFactory {
+/** Factory for the {@link DefaultStreamManagerDispatcherGatewayService}. */
+class DefaultStreamManagerDispatcherGatewayServiceFactory
+        implements AbstractStreamManagerDispatcherLeaderProcess
+                .StreamManagerDispatcherGatewayServiceFactory {
 
     private final StreamManagerDispatcherFactory smDispatcherFactory;
 
@@ -50,18 +47,20 @@ class DefaultStreamManagerDispatcherGatewayServiceFactory implements AbstractStr
     }
 
     @Override
-    public AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayService create(
-            StreamManagerDispatcherId fencingToken,
-            Collection<JobGraph> recoveredJobs,
-            JobGraphWriter jobGraphWriter) {
+    public AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayService
+            create(
+                    StreamManagerDispatcherId fencingToken,
+                    Collection<JobGraph> recoveredJobs,
+                    JobGraphWriter jobGraphWriter) {
         final StreamManagerDispatcher smDispatcher;
         try {
-            smDispatcher = smDispatcherFactory.createStreamManagerDispatcher(
-                    rpcService,
-                    fencingToken,
-                    recoveredJobs,
-                    PartialStreamManagerDispatcherServicesWithJobGraphStore.from(partialSmDispatcherServices, jobGraphWriter)
-            );
+            smDispatcher =
+                    smDispatcherFactory.createStreamManagerDispatcher(
+                            rpcService,
+                            fencingToken,
+                            recoveredJobs,
+                            PartialStreamManagerDispatcherServicesWithJobGraphStore.from(
+                                    partialSmDispatcherServices, jobGraphWriter));
         } catch (Exception e) {
             throw new FlinkRuntimeException("Could not create the Dispatcher rpc endpoint.", e);
         }

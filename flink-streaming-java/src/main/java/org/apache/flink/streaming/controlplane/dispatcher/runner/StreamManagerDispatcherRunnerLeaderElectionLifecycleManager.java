@@ -19,18 +19,21 @@
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
-import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.runtime.leaderelection.LeaderContender;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
-final class StreamManagerDispatcherRunnerLeaderElectionLifecycleManager<T extends StreamManagerDispatcherRunner & LeaderContender> implements StreamManagerDispatcherRunner {
+final class StreamManagerDispatcherRunnerLeaderElectionLifecycleManager<
+                T extends StreamManagerDispatcherRunner & LeaderContender>
+        implements StreamManagerDispatcherRunner {
     private final T smDispatcherRunner;
     private final LeaderElectionService leaderElectionService;
 
-    private StreamManagerDispatcherRunnerLeaderElectionLifecycleManager(T smDispatcherRunner, LeaderElectionService leaderElectionService) throws Exception {
+    private StreamManagerDispatcherRunnerLeaderElectionLifecycleManager(
+            T smDispatcherRunner, LeaderElectionService leaderElectionService) throws Exception {
         this.smDispatcherRunner = smDispatcherRunner;
         this.leaderElectionService = leaderElectionService;
 
@@ -45,9 +48,11 @@ final class StreamManagerDispatcherRunnerLeaderElectionLifecycleManager<T extend
     @Override
     public CompletableFuture<Void> closeAsync() {
         final CompletableFuture<Void> servicesTerminationFuture = stopServices();
-        final CompletableFuture<Void> dispatcherRunnerTerminationFuture = smDispatcherRunner.closeAsync();
+        final CompletableFuture<Void> dispatcherRunnerTerminationFuture =
+                smDispatcherRunner.closeAsync();
 
-        return FutureUtils.completeAll(Arrays.asList(servicesTerminationFuture, dispatcherRunnerTerminationFuture));
+        return FutureUtils.completeAll(
+                Arrays.asList(servicesTerminationFuture, dispatcherRunnerTerminationFuture));
     }
 
     private CompletableFuture<Void> stopServices() {
@@ -60,7 +65,11 @@ final class StreamManagerDispatcherRunnerLeaderElectionLifecycleManager<T extend
         return FutureUtils.completedVoidFuture();
     }
 
-    public static <T extends StreamManagerDispatcherRunner & LeaderContender> StreamManagerDispatcherRunner createFor(T smDispatcherRunner, LeaderElectionService leaderElectionService) throws Exception {
-        return new StreamManagerDispatcherRunnerLeaderElectionLifecycleManager<>(smDispatcherRunner, leaderElectionService);
+    public static <T extends StreamManagerDispatcherRunner & LeaderContender>
+            StreamManagerDispatcherRunner createFor(
+                    T smDispatcherRunner, LeaderElectionService leaderElectionService)
+                    throws Exception {
+        return new StreamManagerDispatcherRunnerLeaderElectionLifecycleManager<>(
+                smDispatcherRunner, leaderElectionService);
     }
 }

@@ -1,4 +1,3 @@
 package org.apache.flink.runtime.controlplane.abstraction;
 
-public interface ExecutionPlan {
-}
+public interface ExecutionPlan {}

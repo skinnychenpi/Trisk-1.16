@@ -22,9 +22,7 @@ import org.apache.flink.util.AbstractID;
 
 import java.util.UUID;
 
-/**
- * Fencing token of the {@link StreamManagerDispatcher}.
- */
+/** Fencing token of the {@link StreamManagerDispatcher}. */
 public class StreamManagerDispatcherId extends AbstractID {
 
     // TODO: UID should be different from previous.
@@ -40,16 +38,12 @@ public class StreamManagerDispatcherId extends AbstractID {
         return new UUID(getUpperPart(), getLowerPart());
     }
 
-    /**
-     * Generates a new random DispatcherId.
-     */
+    /** Generates a new random DispatcherId. */
     public static StreamManagerDispatcherId generate() {
         return new StreamManagerDispatcherId();
     }
 
-    /**
-     * Creates a new DispatcherId that corresponds to the UUID.
-     */
+    /** Creates a new DispatcherId that corresponds to the UUID. */
     public static StreamManagerDispatcherId fromUuid(UUID uuid) {
         return new StreamManagerDispatcherId(uuid);
     }

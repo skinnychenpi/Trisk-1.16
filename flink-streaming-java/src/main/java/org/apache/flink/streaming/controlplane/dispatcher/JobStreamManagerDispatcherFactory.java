@@ -23,38 +23,42 @@ import org.apache.flink.runtime.dispatcher.*;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.rpc.RpcService;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
+
 import org.apache.flink.shaded.guava30.com.google.common.collect.Iterables;
+
 import java.util.Collection;
 
 import static org.apache.flink.runtime.entrypoint.ClusterEntrypoint.INTERNAL_CLUSTER_EXECUTION_MODE;
 
-/**
- * {@link DispatcherFactory} which creates a {@link MiniDispatcher}.
- */
+/** {@link DispatcherFactory} which creates a {@link MiniDispatcher}. */
 public enum JobStreamManagerDispatcherFactory implements StreamManagerDispatcherFactory {
     INSTANCE;
 
     @Override
-//	public MiniStreamManagerDispatcher createStreamManagerDispatcher(
+    //	public MiniStreamManagerDispatcher createStreamManagerDispatcher(
     public StreamManagerDispatcher createStreamManagerDispatcher(
             RpcService rpcService,
             StreamManagerDispatcherId fencingToken,
             Collection<JobGraph> recoveredJobs,
-            PartialStreamManagerDispatcherServicesWithJobGraphStore partialDispatcherServicesWithJobGraphStore) throws Exception {
+            PartialStreamManagerDispatcherServicesWithJobGraphStore
+                    partialDispatcherServicesWithJobGraphStore)
+            throws Exception {
         final JobGraph jobGraph = Iterables.getOnlyElement(recoveredJobs);
 
-        final Configuration configuration = partialDispatcherServicesWithJobGraphStore.getConfiguration();
+        final Configuration configuration =
+                partialDispatcherServicesWithJobGraphStore.getConfiguration();
         final String executionModeValue = configuration.getString(INTERNAL_CLUSTER_EXECUTION_MODE);
-        final ClusterEntrypoint.ExecutionMode executionMode = ClusterEntrypoint.ExecutionMode.valueOf(executionModeValue);
+        final ClusterEntrypoint.ExecutionMode executionMode =
+                ClusterEntrypoint.ExecutionMode.valueOf(executionModeValue);
 
-//		return new MiniStreamManagerDispatcher(
-//			rpcService,
-//			getEndpointId(),
-//			fencingToken,
-//			StreamManagerDispatcherServices.from(partialDispatcherServicesWithJobGraphStore, DefaultJobManagerRunnerFactory.INSTANCE),
-//			jobGraph,
-//			executionMode);
+        //		return new MiniStreamManagerDispatcher(
+        //			rpcService,
+        //			getEndpointId(),
+        //			fencingToken,
+        //			StreamManagerDispatcherServices.from(partialDispatcherServicesWithJobGraphStore,
+        // DefaultJobManagerRunnerFactory.INSTANCE),
+        //			jobGraph,
+        //			executionMode);
         return null;
     }
 }

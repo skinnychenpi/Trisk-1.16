@@ -11,9 +11,7 @@ import org.apache.flink.runtime.rpc.RpcService;
 
 import java.util.concurrent.Executor;
 
-/**
- * Factory for the {@link DispatcherResourceManagerComponent}.
- */
+/** Factory for the {@link DispatcherResourceManagerComponent}. */
 public interface StreamManagerDispatcherComponentFactory {
 
     StreamManagerDispatcherComponent create(
@@ -24,5 +22,6 @@ public interface StreamManagerDispatcherComponentFactory {
             BlobServer blobServer,
             HeartbeatServices heartbeatServices,
             FatalErrorHandler fatalErrorHandler,
-            ExecutionGraphInfoStore executionGraphInfoStore) throws Exception;
+            ExecutionGraphInfoStore executionGraphInfoStore)
+            throws Exception;
 }

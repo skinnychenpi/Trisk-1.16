@@ -22,26 +22,23 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
+import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerConfiguration;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRunner;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRunnerImpl;
 import org.apache.flink.streaming.controlplane.streammanager.factories.DefaultStreamManagerServiceFactory;
 import org.apache.flink.streaming.controlplane.streammanager.factories.StreamManagerServiceFactory;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
-import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.rpc.FatalErrorHandler;
-import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
-import org.apache.flink.runtime.util.Hardware;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-/**
- * @author trx
- * Singleton default factory for {@link StreamManagerRunner}
- */
+/** @author trx Singleton default factory for {@link StreamManagerRunner} */
 public enum DefaultStreamManagerRunnerFactory implements StreamManagerRunnerFactory {
     INSTANCE;
 
@@ -54,24 +51,27 @@ public enum DefaultStreamManagerRunnerFactory implements StreamManagerRunnerFact
             LeaderGatewayRetriever<DispatcherGateway> dispatcherGatewayRetriever,
             LibraryCacheManager libraryCacheManager,
             BlobWriter blobWriter,
-            FatalErrorHandler fatalErrorHandler) throws Exception {
+            FatalErrorHandler fatalErrorHandler)
+            throws Exception {
 
-        final StreamManagerConfiguration streamManagerConfiguration = StreamManagerConfiguration.fromConfiguration(configuration);
+        final StreamManagerConfiguration streamManagerConfiguration =
+                StreamManagerConfiguration.fromConfiguration(configuration);
 
-        final StreamManagerServiceFactory streamManagerServiceFactory = new DefaultStreamManagerServiceFactory(
-                streamManagerConfiguration,
-                rpcService,
-                highAvailabilityServices,
-                libraryCacheManager,
-                blobWriter,
-                dispatcherGatewayRetriever,
-                fatalErrorHandler
-        );
+        final StreamManagerServiceFactory streamManagerServiceFactory =
+                new DefaultStreamManagerServiceFactory(
+                        streamManagerConfiguration,
+                        rpcService,
+                        highAvailabilityServices,
+                        libraryCacheManager,
+                        blobWriter,
+                        dispatcherGatewayRetriever,
+                        fatalErrorHandler);
 
         // TODO: move in StreamManagerSharedServices
-        final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
-                Hardware.getNumberCPUCores(),
-                new ExecutorThreadFactory("streammanager-future"));
+        final ScheduledExecutorService futureExecutor =
+                Executors.newScheduledThreadPool(
+                        Hardware.getNumberCPUCores(),
+                        new ExecutorThreadFactory("streammanager-future"));
 
         return new StreamManagerRunnerImpl(
                 jobGraph,

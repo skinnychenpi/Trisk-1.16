@@ -189,46 +189,58 @@ public final class RestServerEndpointConfiguration {
                 responseHeaders);
     }
     /**
-     * Creates and returns a new {@link RestServerEndpointConfiguration} from the given {@link Configuration}.
+     * Creates and returns a new {@link RestServerEndpointConfiguration} from the given {@link
+     * Configuration}.
      *
-     * @param config configuration from which the REST server endpoint configuration should be created from
+     * @param config configuration from which the REST server endpoint configuration should be
+     *     created from
      * @return REST server endpoint configuration
      * @throws ConfigurationException if SSL was configured incorrectly
      */
-    public static RestServerEndpointConfiguration fromConfigurationForSm(Configuration config) throws ConfigurationException {
+    public static RestServerEndpointConfiguration fromConfigurationForSm(Configuration config)
+            throws ConfigurationException {
         Preconditions.checkNotNull(config);
 
-        final String restAddress = Preconditions.checkNotNull(config.getString(
-                        StreamManagerRestOptions.ADDRESS),
-                "%s must be set",
-                StreamManagerRestOptions.ADDRESS.key());
+        final String restAddress =
+                Preconditions.checkNotNull(
+                        config.getString(StreamManagerRestOptions.ADDRESS),
+                        "%s must be set",
+                        StreamManagerRestOptions.ADDRESS.key());
 
         final String restBindAddress = config.getString(StreamManagerRestOptions.BIND_ADDRESS);
         final String portRangeDefinition = config.getString(StreamManagerRestOptions.BIND_PORT);
 
-        System.out.println("bind address for sm dispatcher rest endpoint: " + restBindAddress
-                + " bind port: " + portRangeDefinition);
+        System.out.println(
+                "bind address for sm dispatcher rest endpoint: "
+                        + restBindAddress
+                        + " bind port: "
+                        + portRangeDefinition);
 
         final SSLHandlerFactory sslHandlerFactory;
         if (SSLUtils.isRestSSLEnabled(config)) {
             try {
                 sslHandlerFactory = SSLUtils.createRestServerSSLEngineFactory(config);
             } catch (Exception e) {
-                throw new ConfigurationException("Failed to initialize SSLEngineFactory for REST server endpoint.", e);
+                throw new ConfigurationException(
+                        "Failed to initialize SSLEngineFactory for REST server endpoint.", e);
             }
         } else {
             sslHandlerFactory = null;
         }
 
-        final Path uploadDir = Paths.get(
-                config.getString(WebOptions.UPLOAD_DIR,	config.getString(WebOptions.TMP_DIR)),
-                "flink-web-upload");
+        final Path uploadDir =
+                Paths.get(
+                        config.getString(
+                                WebOptions.UPLOAD_DIR, config.getString(WebOptions.TMP_DIR)),
+                        "flink-web-upload");
 
-        final int maxContentLength = config.getInteger(StreamManagerRestOptions.SERVER_MAX_CONTENT_LENGTH);
+        final int maxContentLength =
+                config.getInteger(StreamManagerRestOptions.SERVER_MAX_CONTENT_LENGTH);
 
-        final Map<String, String> responseHeaders = Collections.singletonMap(
-                HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN,
-                config.getString(WebOptions.ACCESS_CONTROL_ALLOW_ORIGIN));
+        final Map<String, String> responseHeaders =
+                Collections.singletonMap(
+                        HttpHeaders.Names.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        config.getString(WebOptions.ACCESS_CONTROL_ALLOW_ORIGIN));
 
         return new RestServerEndpointConfiguration(
                 restAddress,

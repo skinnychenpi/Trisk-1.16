@@ -12,8 +12,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Gateway for StreamManager restful endpoints.
  *
- * <p>Gateways which implement this method run a REST endpoint which is reachable
- * under the returned address.
+ * <p>Gateways which implement this method run a REST endpoint which is reachable under the returned
+ * address.
  */
 public interface StreamManagerRestfulGateway extends RpcGateway {
     /**
@@ -24,7 +24,6 @@ public interface StreamManagerRestfulGateway extends RpcGateway {
      * @return Future which is completed with the job's {@link JobResult} once the job has finished
      */
     CompletableFuture<JobResult> requestJobResult(JobID jobId, @RpcTimeout Time timeout);
-
 
     default CompletableFuture<Boolean> registerNewController(
             JobID jobId,
@@ -42,10 +41,7 @@ public interface StreamManagerRestfulGateway extends RpcGateway {
      * @param timeout for the asynchronous operation
      * @return A future to the {@link JobStatus} of the given job
      */
-    default CompletableFuture<JobStatus> requestJobStatus(
-            JobID jobId,
-            @RpcTimeout Time timeout) {
+    default CompletableFuture<JobStatus> requestJobStatus(JobID jobId, @RpcTimeout Time timeout) {
         throw new UnsupportedOperationException();
     }
 }
-

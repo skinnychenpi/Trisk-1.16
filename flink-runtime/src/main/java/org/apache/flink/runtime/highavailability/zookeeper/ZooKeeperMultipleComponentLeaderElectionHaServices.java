@@ -165,6 +165,7 @@ public class ZooKeeperMultipleComponentLeaderElectionHaServices
     protected String getLeaderPathForRestServer() {
         return ZooKeeperUtils.getRestServerNode();
     }
+
     @Override
     public LeaderElectionService getStreamManagerDispatcherLeaderElectionService() {
         return null;

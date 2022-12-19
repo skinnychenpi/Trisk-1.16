@@ -21,8 +21,6 @@ package org.apache.flink.streaming.controlplane.dispatcher;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.controlplane.rest.handler.job.StreamManagerJobSubmitHandler;
-import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerWebMonitorEndpoint;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.rest.RestServerEndpointConfiguration;
@@ -32,20 +30,21 @@ import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.webmonitor.WebMonitorExtension;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
-import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandler;
-
+import org.apache.flink.streaming.controlplane.rest.handler.job.StreamManagerJobSubmitHandler;
+import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerWebMonitorEndpoint;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.ExceptionUtils;
+
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandler;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
-/**
- * REST endpoint for the {@link Dispatcher} component.
- */
-public class StreamManagerDispatcherRestEndpoint extends StreamManagerWebMonitorEndpoint<StreamManagerDispatcherGateway> {
+/** REST endpoint for the {@link Dispatcher} component. */
+public class StreamManagerDispatcherRestEndpoint
+        extends StreamManagerWebMonitorEndpoint<StreamManagerDispatcherGateway> {
 
     private WebMonitorExtension webSubmissionExtension;
 
@@ -57,7 +56,8 @@ public class StreamManagerDispatcherRestEndpoint extends StreamManagerWebMonitor
             ScheduledExecutorService executor,
             LeaderElectionService leaderElectionService,
             ExecutionGraphCache executionGraphCache,
-            FatalErrorHandler fatalErrorHandler) throws IOException, ConfigurationException {
+            FatalErrorHandler fatalErrorHandler)
+            throws IOException, ConfigurationException {
 
         super(
                 leaderRetriever,
@@ -72,46 +72,44 @@ public class StreamManagerDispatcherRestEndpoint extends StreamManagerWebMonitor
     }
 
     @Override
-    protected List<Tuple2<RestHandlerSpecification, ChannelInboundHandler>> initializeHandlers(final CompletableFuture<String> localAddressFuture) {
-        List<Tuple2<RestHandlerSpecification, ChannelInboundHandler>> handlers = super.initializeHandlers(localAddressFuture);
+    protected List<Tuple2<RestHandlerSpecification, ChannelInboundHandler>> initializeHandlers(
+            final CompletableFuture<String> localAddressFuture) {
+        List<Tuple2<RestHandlerSpecification, ChannelInboundHandler>> handlers =
+                super.initializeHandlers(localAddressFuture);
 
         // Add the Dispatcher specific handlers
 
         final Time timeout = restConfiguration.getTimeout();
 
-        StreamManagerJobSubmitHandler jobSubmitHandler = new StreamManagerJobSubmitHandler(
-                leaderRetriever,
-                timeout,
-                responseHeaders,
-                executor,
-                clusterConfiguration);
+        StreamManagerJobSubmitHandler jobSubmitHandler =
+                new StreamManagerJobSubmitHandler(
+                        leaderRetriever, timeout, responseHeaders, executor, clusterConfiguration);
 
         // TODO: do not enable web submit currently.
-//		if (restConfiguration.isWebSubmitEnabled()) {
-//			try {
-//				webSubmissionExtension = WebMonitorUtils.loadWebSubmissionExtension(
-//					leaderRetriever,
-//					timeout,
-//					responseHeaders,
-//					localAddressFuture,
-//					uploadDir,
-//					executor,
-//					clusterConfiguration);
-//
-//				// register extension handlers
-//				handlers.addAll(webSubmissionExtension.getHandlers());
-//			} catch (FlinkException e) {
-//				if (log.isDebugEnabled()) {
-//					log.debug("Failed to load web based job submission extension.", e);
-//				} else {
-//					log.info("Failed to load web based job submission extension. " +
-//						"Probable reason: flink-runtime-web is not in the classpath.");
-//				}
-//			}
-//		} else {
-//			log.info("Web-based job submission is not enabled.");
-//		}
-
+        //		if (restConfiguration.isWebSubmitEnabled()) {
+        //			try {
+        //				webSubmissionExtension = WebMonitorUtils.loadWebSubmissionExtension(
+        //					leaderRetriever,
+        //					timeout,
+        //					responseHeaders,
+        //					localAddressFuture,
+        //					uploadDir,
+        //					executor,
+        //					clusterConfiguration);
+        //
+        //				// register extension handlers
+        //				handlers.addAll(webSubmissionExtension.getHandlers());
+        //			} catch (FlinkException e) {
+        //				if (log.isDebugEnabled()) {
+        //					log.debug("Failed to load web based job submission extension.", e);
+        //				} else {
+        //					log.info("Failed to load web based job submission extension. " +
+        //						"Probable reason: flink-runtime-web is not in the classpath.");
+        //				}
+        //			}
+        //		} else {
+        //			log.info("Web-based job submission is not enabled.");
+        //		}
 
         handlers.add(Tuple2.of(jobSubmitHandler.getMessageHeaders(), jobSubmitHandler));
 
@@ -126,17 +124,20 @@ public class StreamManagerDispatcherRestEndpoint extends StreamManagerWebMonitor
 
         shutdownFuture.whenComplete(
                 (Void ignored, Throwable throwable) -> {
-                    webSubmissionExtension.closeAsync().whenComplete(
-                            (Void innerIgnored, Throwable innerThrowable) -> {
-                                if (innerThrowable != null) {
-                                    shutdownResultFuture.completeExceptionally(
-                                            ExceptionUtils.firstOrSuppressed(innerThrowable, throwable));
-                                } else if (throwable != null) {
-                                    shutdownResultFuture.completeExceptionally(throwable);
-                                } else {
-                                    shutdownResultFuture.complete(null);
-                                }
-                            });
+                    webSubmissionExtension
+                            .closeAsync()
+                            .whenComplete(
+                                    (Void innerIgnored, Throwable innerThrowable) -> {
+                                        if (innerThrowable != null) {
+                                            shutdownResultFuture.completeExceptionally(
+                                                    ExceptionUtils.firstOrSuppressed(
+                                                            innerThrowable, throwable));
+                                        } else if (throwable != null) {
+                                            shutdownResultFuture.completeExceptionally(throwable);
+                                        } else {
+                                            shutdownResultFuture.complete(null);
+                                        }
+                                    });
                 });
 
         return shutdownResultFuture;

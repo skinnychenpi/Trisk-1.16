@@ -21,48 +21,39 @@ package org.apache.flink.runtime.controlplane.streammanager;
 import org.apache.flink.util.AbstractID;
 
 import javax.annotation.Nullable;
+
 import java.util.UUID;
 
-/**
- * The {@link StreamManagerGateway} fencing token.
- */
+/** The {@link StreamManagerGateway} fencing token. */
 public class StreamManagerId extends AbstractID {
 
     private static final long serialVersionUID = -1065386276246562408L;
 
-    /**
-     * Creates a StreamManagerId that takes the bits from the given UUID.
-     */
+    /** Creates a StreamManagerId that takes the bits from the given UUID. */
     public StreamManagerId(UUID uuid) {
         super(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
     }
 
-    /**
-     * Generates a new random StreamManagerId.
-     */
+    /** Generates a new random StreamManagerId. */
     private StreamManagerId() {
         super();
     }
 
-    /**
-     * Creates a UUID with the bits from this StreamManagerId.
-     */
+    /** Creates a UUID with the bits from this StreamManagerId. */
     public UUID toUUID() {
         return new UUID(getUpperPart(), getLowerPart());
     }
 
-    /**
-     * Generates a new random JobMasterId.
-     */
+    /** Generates a new random JobMasterId. */
     public static StreamManagerId generate() {
         return new StreamManagerId();
     }
 
     /**
-     * If the given uuid is null, this returns null, otherwise a StreamManagerId that
-     * corresponds to the UUID, via {@link #StreamManagerId(UUID)}.
+     * If the given uuid is null, this returns null, otherwise a StreamManagerId that corresponds to
+     * the UUID, via {@link #StreamManagerId(UUID)}.
      */
     public static StreamManagerId fromUuidOrNull(@Nullable UUID uuid) {
-        return  uuid == null ? null : new StreamManagerId(uuid);
+        return uuid == null ? null : new StreamManagerId(uuid);
     }
 }

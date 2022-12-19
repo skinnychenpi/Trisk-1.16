@@ -1,20 +1,22 @@
 package org.apache.flink.streaming.controlplane.entrypoint.streammanager;
 
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
-import org.apache.flink.util.concurrent.FutureUtils;
-import org.apache.flink.streaming.controlplane.dispatcher.runner.StreamManagerDispatcherRunner;
-import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerWebMonitorEndpoint;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
+import org.apache.flink.streaming.controlplane.dispatcher.runner.StreamManagerDispatcherRunner;
+import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerWebMonitorEndpoint;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.concurrent.FutureUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -22,21 +24,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
- * Component which starts a {@link Dispatcher}, {@link ResourceManager} and {@link WebMonitorEndpoint}
- * in the same process.
+ * Component which starts a {@link Dispatcher}, {@link ResourceManager} and {@link
+ * WebMonitorEndpoint} in the same process.
  */
 public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
 
-    private static final Logger LOG = LoggerFactory.getLogger(StreamManagerDispatcherComponent.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(StreamManagerDispatcherComponent.class);
 
-    @Nonnull
-    private final StreamManagerDispatcherRunner smDispatcherRunner;
+    @Nonnull private final StreamManagerDispatcherRunner smDispatcherRunner;
 
-    @Nonnull
-    private final LeaderRetrievalService smDispatcherLeaderRetrievalService;
+    @Nonnull private final LeaderRetrievalService smDispatcherLeaderRetrievalService;
 
-    @Nonnull
-    private final StreamManagerWebMonitorEndpoint<?> smWebMonitorEndpoint;
+    @Nonnull private final StreamManagerWebMonitorEndpoint<?> smWebMonitorEndpoint;
 
     private final CompletableFuture<Void> terminationFuture;
 
@@ -66,62 +66,66 @@ public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
     }
 
     /**
-     * Deregister the Flink application from the resource management system by signalling
-     * the {@link ResourceManager}.
+     * Deregister the Flink application from the resource management system by signalling the {@link
+     * ResourceManager}.
      *
      * @param applicationStatus to terminate the application with
      * @param diagnostics additional information about the shut down, can be {@code null}
      * @return Future which is completed once the shut down
      */
     public CompletableFuture<Void> deregisterApplicationAndClose(
-            final ApplicationStatus applicationStatus,
-            final @Nullable String diagnostics) {
+            final ApplicationStatus applicationStatus, final @Nullable String diagnostics) {
 
         if (isRunning.compareAndSet(true, false)) {
-            final CompletableFuture<Void> closeSMWebMonitorAndDeregisterAppFuture = smWebMonitorEndpoint.closeAsync();
-//				FutureUtils.composeAfterwards(smWebMonitorEndpoint.closeAsync(), () -> deregisterApplication(applicationStatus, diagnostics));
+            final CompletableFuture<Void> closeSMWebMonitorAndDeregisterAppFuture =
+                    smWebMonitorEndpoint.closeAsync();
+            //				FutureUtils.composeAfterwards(smWebMonitorEndpoint.closeAsync(), () ->
+            // deregisterApplication(applicationStatus, diagnostics));
 
-            return FutureUtils.composeAfterwards(closeSMWebMonitorAndDeregisterAppFuture, this::closeAsyncInternal);
+            return FutureUtils.composeAfterwards(
+                    closeSMWebMonitorAndDeregisterAppFuture, this::closeAsyncInternal);
         } else {
             return terminationFuture;
         }
     }
 
-//    private CompletableFuture<Void> closeAsyncInternal() {
-//        LOG.info("Closing components.");
-//
-//        Exception exception = null;
-//
-//        final Collection<CompletableFuture<Void>> terminationFutures = new ArrayList<>(3);
-//
-//        try {
-//            smDispatcherLeaderRetrievalService.stop();
-//        } catch (Exception e) {
-//            exception = ExceptionUtils.firstOrSuppressed(e, exception);
-//        }
-//
-//        terminationFutures.add(smDispatcherRunner.closeAsync());
-//
-//        if (exception != null) {
-//            terminationFutures.add(FutureUtils.completedExceptionally(exception));
-//        }
-//
-//        final CompletableFuture<Void> componentTerminationFuture = FutureUtils.completeAll(terminationFutures);
-//
-//        componentTerminationFuture.whenComplete((aVoid, throwable) -> {
-//            if (throwable != null) {
-//                terminationFuture.completeExceptionally(throwable);
-//            } else {
-//                terminationFuture.complete(aVoid);
-//            }
-//        });
-//
-//        return terminationFuture;
-//    }
+    //    private CompletableFuture<Void> closeAsyncInternal() {
+    //        LOG.info("Closing components.");
+    //
+    //        Exception exception = null;
+    //
+    //        final Collection<CompletableFuture<Void>> terminationFutures = new ArrayList<>(3);
+    //
+    //        try {
+    //            smDispatcherLeaderRetrievalService.stop();
+    //        } catch (Exception e) {
+    //            exception = ExceptionUtils.firstOrSuppressed(e, exception);
+    //        }
+    //
+    //        terminationFutures.add(smDispatcherRunner.closeAsync());
+    //
+    //        if (exception != null) {
+    //            terminationFutures.add(FutureUtils.completedExceptionally(exception));
+    //        }
+    //
+    //        final CompletableFuture<Void> componentTerminationFuture =
+    // FutureUtils.completeAll(terminationFutures);
+    //
+    //        componentTerminationFuture.whenComplete((aVoid, throwable) -> {
+    //            if (throwable != null) {
+    //                terminationFuture.completeExceptionally(throwable);
+    //            } else {
+    //                terminationFuture.complete(aVoid);
+    //            }
+    //        });
+    //
+    //        return terminationFuture;
+    //    }
 
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return stopApplication(ApplicationStatus.CANCELED, "StreamManagerDispatcherComponent has been closed.");
+        return stopApplication(
+                ApplicationStatus.CANCELED, "StreamManagerDispatcherComponent has been closed.");
     }
 
     /**
@@ -150,12 +154,14 @@ public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
     private CompletableFuture<Void> internalShutdown(
             final Supplier<CompletableFuture<?>> additionalShutdownAction) {
         if (isRunning.compareAndSet(true, false)) {
-//            final CompletableFuture<Void> operationsConsumedFuture =
-//                    dispatcherOperationCaches.shutdownCaches();
-            final CompletableFuture<Void> webMonitorShutdownFuture = smWebMonitorEndpoint.closeAsync();
-//            final CompletableFuture<Void> closeWebMonitorAndAdditionalShutdownActionFuture =
-//                    FutureUtils.composeAfterwards(
-//                            webMonitorShutdownFuture, additionalShutdownAction);
+            //            final CompletableFuture<Void> operationsConsumedFuture =
+            //                    dispatcherOperationCaches.shutdownCaches();
+            final CompletableFuture<Void> webMonitorShutdownFuture =
+                    smWebMonitorEndpoint.closeAsync();
+            //            final CompletableFuture<Void>
+            // closeWebMonitorAndAdditionalShutdownActionFuture =
+            //                    FutureUtils.composeAfterwards(
+            //                            webMonitorShutdownFuture, additionalShutdownAction);
 
             return FutureUtils.composeAfterwards(
                     webMonitorShutdownFuture, this::closeAsyncInternal);
@@ -177,15 +183,15 @@ public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
             exception = ExceptionUtils.firstOrSuppressed(e, exception);
         }
 
-//        try {
-//            resourceManagerRetrievalService.stop();
-//        } catch (Exception e) {
-//            exception = ExceptionUtils.firstOrSuppressed(e, exception);
-//        }
+        //        try {
+        //            resourceManagerRetrievalService.stop();
+        //        } catch (Exception e) {
+        //            exception = ExceptionUtils.firstOrSuppressed(e, exception);
+        //        }
 
         terminationFutures.add(smDispatcherRunner.closeAsync());
 
-//        terminationFutures.add(resourceManagerService.closeAsync());
+        //        terminationFutures.add(resourceManagerService.closeAsync());
 
         if (exception != null) {
             terminationFutures.add(FutureUtils.completedExceptionally(exception));
@@ -205,5 +211,4 @@ public class StreamManagerDispatcherComponent implements AutoCloseableAsync {
 
         return terminationFuture;
     }
-
 }

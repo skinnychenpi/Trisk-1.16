@@ -21,19 +21,21 @@ package org.apache.flink.streaming.controlplane.dispatcher.runner;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
-import org.apache.flink.util.concurrent.FutureUtils;
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherGateway;
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherId;
-import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.JobGraphWriter;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherGateway;
+import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherId;
+import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.concurrent.FutureUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
 import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,7 +43,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamManagerDispatcherLeaderProcess {
+abstract class AbstractStreamManagerDispatcherLeaderProcess
+        implements StreamManagerDispatcherLeaderProcess {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -61,15 +64,16 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
 
     private State state;
 
-    @Nullable
-    private StreamManagerDispatcherGatewayService dispatcherService;
+    @Nullable private StreamManagerDispatcherGatewayService dispatcherService;
 
-    AbstractStreamManagerDispatcherLeaderProcess(UUID leaderSessionId, FatalErrorHandler fatalErrorHandler) {
+    AbstractStreamManagerDispatcherLeaderProcess(
+            UUID leaderSessionId, FatalErrorHandler fatalErrorHandler) {
         this.leaderSessionId = leaderSessionId;
         this.fatalErrorHandler = fatalErrorHandler;
 
         this.dispatcherGatewayFuture = new CompletableFuture<>();
-        this.leaderAddressFuture = dispatcherGatewayFuture.thenApply(StreamManagerRestfulGateway::getAddress);
+        this.leaderAddressFuture =
+                dispatcherGatewayFuture.thenApply(StreamManagerRestfulGateway::getAddress);
         this.terminationFuture = new CompletableFuture<>();
         this.shutDownFuture = new CompletableFuture<>();
 
@@ -85,9 +89,7 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
 
     @Override
     public final void start() {
-        runIfStateIs(
-                State.CREATED,
-                this::startInternal);
+        runIfStateIs(State.CREATED, this::startInternal);
     }
 
     private void startInternal() {
@@ -102,7 +104,8 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
     }
 
     @Override
-    public final CompletableFuture<StreamManagerDispatcherGateway> getStreamManagerDispatcherGateway() {
+    public final CompletableFuture<StreamManagerDispatcherGateway>
+            getStreamManagerDispatcherGateway() {
         return dispatcherGatewayFuture;
     }
 
@@ -116,15 +119,14 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
         return shutDownFuture;
     }
 
-    protected final Optional<StreamManagerDispatcherGatewayService> getStreamManagerDispatcherService() {
+    protected final Optional<StreamManagerDispatcherGatewayService>
+            getStreamManagerDispatcherService() {
         return Optional.ofNullable(dispatcherService);
     }
 
     @Override
     public final CompletableFuture<Void> closeAsync() {
-        runIfStateIsNot(
-                State.STOPPED,
-                this::closeInternal);
+        runIfStateIsNot(State.STOPPED, this::closeInternal);
 
         return terminationFuture;
     }
@@ -134,13 +136,10 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
 
         final CompletableFuture<Void> dispatcherServiceTerminationFuture = closeDispatcherService();
 
-        final CompletableFuture<Void> onCloseTerminationFuture = FutureUtils.composeAfterwards(
-                dispatcherServiceTerminationFuture,
-                this::onClose);
+        final CompletableFuture<Void> onCloseTerminationFuture =
+                FutureUtils.composeAfterwards(dispatcherServiceTerminationFuture, this::onClose);
 
-        FutureUtils.forward(
-                onCloseTerminationFuture,
-                this.terminationFuture);
+        FutureUtils.forward(onCloseTerminationFuture, this.terminationFuture);
 
         state = State.STOPPED;
     }
@@ -160,13 +159,13 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
     }
 
     final void completeDispatcherSetup(StreamManagerDispatcherGatewayService dispatcherService) {
-        runIfStateIs(
-                State.RUNNING,
-                () -> completeDispatcherSetupInternal(dispatcherService));
+        runIfStateIs(State.RUNNING, () -> completeDispatcherSetupInternal(dispatcherService));
     }
 
-    private void completeDispatcherSetupInternal(StreamManagerDispatcherGatewayService createdDispatcherService) {
-        Preconditions.checkState(dispatcherService == null, "The DispatcherGatewayService can only be set once.");
+    private void completeDispatcherSetupInternal(
+            StreamManagerDispatcherGatewayService createdDispatcherService) {
+        Preconditions.checkState(
+                dispatcherService == null, "The DispatcherGatewayService can only be set once.");
         dispatcherService = createdDispatcherService;
         dispatcherGatewayFuture.complete(createdDispatcherService.getGateway());
         FutureUtils.forward(createdDispatcherService.getShutDownFuture(), shutDownFuture);
@@ -197,9 +196,7 @@ abstract class AbstractStreamManagerDispatcherLeaderProcess implements StreamMan
     }
 
     private void runIfStateIsNot(State notExpectedState, Runnable action) {
-        runIfState(
-                state -> !notExpectedState.equals(state),
-                action);
+        runIfState(state -> !notExpectedState.equals(state), action);
     }
 
     private void runIfState(Predicate<State> actionPredicate, Runnable action) {

@@ -11,9 +11,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * {@code OnMainThreadStreamManagerRunnerRegistry} implements {@link StreamManagerRunnerRegistry} guarding
- * the passed {@code StreamManagerRunnerRegistry} instance in a way that it only allows modifying
- * methods to be executed on the component's main thread.
+ * {@code OnMainThreadStreamManagerRunnerRegistry} implements {@link StreamManagerRunnerRegistry}
+ * guarding the passed {@code StreamManagerRunnerRegistry} instance in a way that it only allows
+ * modifying methods to be executed on the component's main thread.
  *
  * @see ComponentMainThreadExecutor
  */
@@ -78,12 +78,11 @@ public class OnMainThreadStreamManagerRunnerRegistry
     }
 
     /**
-     * Returns the delegated {@link StreamManagerRunnerRegistry}. This method can be used to workaround
-     * the main thread safeguard.
+     * Returns the delegated {@link StreamManagerRunnerRegistry}. This method can be used to
+     * workaround the main thread safeguard.
      */
     @Override
     public StreamManagerRunnerRegistry getWrappedDelegate() {
         return this.delegate;
     }
 }
-

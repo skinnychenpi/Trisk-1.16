@@ -20,9 +20,7 @@ package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
 import java.util.UUID;
 
-/**
- * Factory for the {@link StreamManagerDispatcherLeaderProcess}.
- */
+/** Factory for the {@link StreamManagerDispatcherLeaderProcess}. */
 public interface StreamManagerDispatcherLeaderProcessFactory {
 
     StreamManagerDispatcherLeaderProcess create(UUID leaderSessionID);

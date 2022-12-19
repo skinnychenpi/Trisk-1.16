@@ -1,4 +1,3 @@
 package org.apache.flink.runtime.controlplane.abstraction;
 
-public interface JobGraphConfig {
-}
+public interface JobGraphConfig {}

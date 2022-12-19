@@ -18,17 +18,14 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
-import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
-import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherFactory;
 import org.apache.flink.runtime.dispatcher.runner.*;
 import org.apache.flink.runtime.entrypoint.component.JobGraphRetriever;
-//import org.apache.flink.runtime.jobmanager.JobGraphStoreFactory;
+import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
+import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherFactory;
 
 import java.util.concurrent.Executor;
 
@@ -36,10 +33,14 @@ import java.util.concurrent.Executor;
  * {@link DispatcherRunnerFactory} implementation which creates {@link DefaultDispatcherRunner}
  * instances.
  */
-public class DefaultStreamManagerDispatcherRunnerFactory implements StreamManagerDispatcherRunnerFactory {
-    private final StreamManagerDispatcherLeaderProcessFactoryFactory smDispatcherLeaderProcessFactoryFactory;
+public class DefaultStreamManagerDispatcherRunnerFactory
+        implements StreamManagerDispatcherRunnerFactory {
+    private final StreamManagerDispatcherLeaderProcessFactoryFactory
+            smDispatcherLeaderProcessFactoryFactory;
 
-    private DefaultStreamManagerDispatcherRunnerFactory(StreamManagerDispatcherLeaderProcessFactoryFactory smDispatcherLeaderProcessFactoryFactory) {
+    private DefaultStreamManagerDispatcherRunnerFactory(
+            StreamManagerDispatcherLeaderProcessFactoryFactory
+                    smDispatcherLeaderProcessFactoryFactory) {
         this.smDispatcherLeaderProcessFactoryFactory = smDispatcherLeaderProcessFactoryFactory;
     }
 
@@ -50,28 +51,30 @@ public class DefaultStreamManagerDispatcherRunnerFactory implements StreamManage
             JobPersistenceComponentFactory jobPersistenceComponentFactory,
             Executor ioExecutor,
             RpcService rpcService,
-            PartialStreamManagerDispatcherServices partialDispatcherServices) throws Exception {
+            PartialStreamManagerDispatcherServices partialDispatcherServices)
+            throws Exception {
 
-        final StreamManagerDispatcherLeaderProcessFactory smDispatcherLeaderProcessFactory = smDispatcherLeaderProcessFactoryFactory.createFactory(
-                jobPersistenceComponentFactory,
-                ioExecutor,
-                rpcService,
-                partialDispatcherServices,
-                fatalErrorHandler
-        );
+        final StreamManagerDispatcherLeaderProcessFactory smDispatcherLeaderProcessFactory =
+                smDispatcherLeaderProcessFactoryFactory.createFactory(
+                        jobPersistenceComponentFactory,
+                        ioExecutor,
+                        rpcService,
+                        partialDispatcherServices,
+                        fatalErrorHandler);
 
         return DefaultStreamManagerDispatcherRunner.create(
-                leaderElectionService,
-                fatalErrorHandler,
-                smDispatcherLeaderProcessFactory);
+                leaderElectionService, fatalErrorHandler, smDispatcherLeaderProcessFactory);
     }
 
-    public static DefaultStreamManagerDispatcherRunnerFactory createSessionRunner(StreamManagerDispatcherFactory dispatcherFactory) {
+    public static DefaultStreamManagerDispatcherRunnerFactory createSessionRunner(
+            StreamManagerDispatcherFactory dispatcherFactory) {
         return new DefaultStreamManagerDispatcherRunnerFactory(
-                SessionStreamManagerDispatcherLeaderProcessFactoryFactory.create(dispatcherFactory));
+                SessionStreamManagerDispatcherLeaderProcessFactoryFactory.create(
+                        dispatcherFactory));
     }
 
-    public static DefaultStreamManagerDispatcherRunnerFactory createJobRunner(JobGraphRetriever jobGraphRetriever) {
+    public static DefaultStreamManagerDispatcherRunnerFactory createJobRunner(
+            JobGraphRetriever jobGraphRetriever) {
         return new DefaultStreamManagerDispatcherRunnerFactory(
                 JobStreamManagerDispatcherLeaderProcessFactoryFactory.create(jobGraphRetriever));
     }

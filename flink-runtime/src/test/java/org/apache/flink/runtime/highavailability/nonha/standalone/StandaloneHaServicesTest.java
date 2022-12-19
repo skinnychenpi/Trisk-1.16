@@ -50,7 +50,10 @@ public class StandaloneHaServicesTest extends TestLogger {
 
         standaloneHaServices =
                 new StandaloneHaServices(
-                        resourceManagerAddress, dispatcherAddress, webMonitorAddress, smDispatcherAddress);
+                        resourceManagerAddress,
+                        dispatcherAddress,
+                        webMonitorAddress,
+                        smDispatcherAddress);
     }
 
     @After

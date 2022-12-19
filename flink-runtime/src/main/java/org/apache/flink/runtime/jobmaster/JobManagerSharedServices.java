@@ -199,13 +199,13 @@ public class JobManagerSharedServices {
         checkNotNull(blobServer);
         checkNotNull(sharedLibraryCacheManager);
 
-
         final int numberCPUCores = Hardware.getNumberCPUCores();
         final int jobManagerFuturePoolSize =
                 config.getInteger(JobManagerOptions.JOB_MANAGER_FUTURE_POOL_SIZE, numberCPUCores);
         final ScheduledExecutorService futureExecutor =
                 Executors.newScheduledThreadPool(
-                        jobManagerFuturePoolSize, new ExecutorThreadFactory("StreamManager-future"));
+                        jobManagerFuturePoolSize,
+                        new ExecutorThreadFactory("StreamManager-future"));
 
         final int jobManagerIoPoolSize =
                 config.getInteger(JobManagerOptions.JOB_MANAGER_IO_POOL_SIZE, numberCPUCores);

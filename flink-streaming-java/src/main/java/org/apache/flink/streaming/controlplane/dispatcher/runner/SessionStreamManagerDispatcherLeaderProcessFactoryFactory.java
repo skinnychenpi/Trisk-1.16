@@ -18,24 +18,22 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
-import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherFactory;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
+import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherFactory;
 
 import java.util.concurrent.Executor;
 
-/**
- * Factory for the {@link SessionStreamManagerDispatcherLeaderProcessFactory}.
- */
-public class SessionStreamManagerDispatcherLeaderProcessFactoryFactory implements StreamManagerDispatcherLeaderProcessFactoryFactory {
+/** Factory for the {@link SessionStreamManagerDispatcherLeaderProcessFactory}. */
+public class SessionStreamManagerDispatcherLeaderProcessFactoryFactory
+        implements StreamManagerDispatcherLeaderProcessFactoryFactory {
 
     private final StreamManagerDispatcherFactory dispatcherFactory;
 
-    private SessionStreamManagerDispatcherLeaderProcessFactoryFactory(StreamManagerDispatcherFactory dispatcherFactory) {
+    private SessionStreamManagerDispatcherLeaderProcessFactoryFactory(
+            StreamManagerDispatcherFactory dispatcherFactory) {
         this.dispatcherFactory = dispatcherFactory;
     }
 
@@ -46,11 +44,11 @@ public class SessionStreamManagerDispatcherLeaderProcessFactoryFactory implement
             RpcService rpcService,
             PartialStreamManagerDispatcherServices partialDispatcherServices,
             FatalErrorHandler fatalErrorHandler) {
-        final AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayServiceFactory dispatcherGatewayServiceFactory = new DefaultStreamManagerDispatcherGatewayServiceFactory(
-                dispatcherFactory,
-                rpcService,
-                partialDispatcherServices
-        );
+        final AbstractStreamManagerDispatcherLeaderProcess
+                        .StreamManagerDispatcherGatewayServiceFactory
+                dispatcherGatewayServiceFactory =
+                        new DefaultStreamManagerDispatcherGatewayServiceFactory(
+                                dispatcherFactory, rpcService, partialDispatcherServices);
 
         return new SessionStreamManagerDispatcherLeaderProcessFactory(
                 dispatcherGatewayServiceFactory,
@@ -59,7 +57,8 @@ public class SessionStreamManagerDispatcherLeaderProcessFactoryFactory implement
                 fatalErrorHandler);
     }
 
-    public static SessionStreamManagerDispatcherLeaderProcessFactoryFactory create(StreamManagerDispatcherFactory dispatcherFactory) {
+    public static SessionStreamManagerDispatcherLeaderProcessFactoryFactory create(
+            StreamManagerDispatcherFactory dispatcherFactory) {
         return new SessionStreamManagerDispatcherLeaderProcessFactoryFactory(dispatcherFactory);
     }
 }

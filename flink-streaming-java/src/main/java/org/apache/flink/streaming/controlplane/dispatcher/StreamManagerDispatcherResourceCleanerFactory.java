@@ -47,7 +47,8 @@ import java.util.concurrent.Executor;
  */
 public class StreamManagerDispatcherResourceCleanerFactory implements ResourceCleanerFactory {
 
-    private static final String STREAM_MANAGER_RUNNER_REGISTRY_LABEL = "StreamManagerRunnerRegistry";
+    private static final String STREAM_MANAGER_RUNNER_REGISTRY_LABEL =
+            "StreamManagerRunnerRegistry";
     private static final String JOB_GRAPH_STORE_LABEL = "JobGraphStore";
     private static final String BLOB_SERVER_LABEL = "BlobServer";
     private static final String HA_SERVICES_LABEL = "HighAvailabilityServices";
@@ -96,8 +97,7 @@ public class StreamManagerDispatcherResourceCleanerFactory implements ResourceCl
         return DefaultResourceCleaner.forLocallyCleanableResources(
                         mainThreadExecutor, cleanupExecutor, retryStrategy)
                 .withPrioritizedCleanup(
-                        STREAM_MANAGER_RUNNER_REGISTRY_LABEL,
-                        streamManagerRunnerRegistry)
+                        STREAM_MANAGER_RUNNER_REGISTRY_LABEL, streamManagerRunnerRegistry)
                 .withRegularCleanup(JOB_GRAPH_STORE_LABEL, jobGraphWriter)
                 .withRegularCleanup(BLOB_SERVER_LABEL, blobServer)
                 .build();

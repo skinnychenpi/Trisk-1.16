@@ -713,7 +713,8 @@ public abstract class ClusterControllerEntrypoint implements AutoCloseableAsync,
     // Helper methods
     // --------------------------------------------------
 
-    public static void runClusterControllerEntrypoint(ClusterControllerEntrypoint clusterEntrypoint) {
+    public static void runClusterControllerEntrypoint(
+            ClusterControllerEntrypoint clusterEntrypoint) {
 
         final String clusterControllerEntrypointName = clusterEntrypoint.getClass().getSimpleName();
         try {

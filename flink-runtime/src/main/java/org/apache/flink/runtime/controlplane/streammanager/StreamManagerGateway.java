@@ -33,19 +33,17 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 
 import java.util.concurrent.CompletableFuture;
 
-/**
- * rpc gateway interface
- */
+/** rpc gateway interface */
 public interface StreamManagerGateway extends FencedRpcGateway<StreamManagerId> {
 
     /**
      * Register a {@link JobMaster} at the resource manager.
      *
-     * @param jobMasterId         The fencing token for the JobMaster leader
+     * @param jobMasterId The fencing token for the JobMaster leader
      * @param jobMasterResourceId The resource ID of the JobMaster that registers
-     * @param jobMasterAddress    The address of the JobMaster that registers
-     * @param jobId               The Job ID of the JobMaster that registers
-     * @param timeout             Timeout for the future to complete
+     * @param jobMasterAddress The address of the JobMaster that registers
+     * @param jobId The Job ID of the JobMaster that registers
+     * @param timeout Timeout for the future to complete
      * @return Future registration response
      */
     CompletableFuture<RegistrationResponse> registerJobManager(
@@ -61,13 +59,12 @@ public interface StreamManagerGateway extends FencedRpcGateway<StreamManagerId> 
      * @param jobId The Job ID of the job manager
      * @param cause the disconnection between the job manager and the stream manager
      */
-    void disconnectJobManager(
-            final JobID jobId,
-            final Exception cause);
+    void disconnectJobManager(final JobID jobId, final Exception cause);
 
     /**
-     * The notification from the JobManager that changes completed:
-     * Maybe 1. Assign states for repartition, 2. Rescale and assign states
+     * The notification from the JobManager that changes completed: Maybe 1. Assign states for
+     * repartition, 2. Rescale and assign states
+     *
      * @param targetVertexID the JobVertexID of target vertex
      */
     void streamSwitchCompleted(JobVertexID targetVertexID);
@@ -75,17 +72,20 @@ public interface StreamManagerGateway extends FencedRpcGateway<StreamManagerId> 
     /**
      * This method is called whenever the status of the job changes.
      *
-     * @param jobId         The ID of the job.
-     * @param newJobStatus  The status the job switched to.
-     * @param timestamp     The timestamp when the status transition occurred.
-     * @param error         In case the job status switches to a failure state, this is the
-     *                      exception that caused the failure.
+     * @param jobId The ID of the job.
+     * @param newJobStatus The status the job switched to.
+     * @param timestamp The timestamp when the status transition occurred.
+     * @param error In case the job status switches to a failure state, this is the exception that
+     *     caused the failure.
      */
-    void jobStatusChanged(JobID jobId, JobStatus newJobStatus, long timestamp, Throwable error, ExecutionPlan jobAbstraction);
+    void jobStatusChanged(
+            JobID jobId,
+            JobStatus newJobStatus,
+            long timestamp,
+            Throwable error,
+            ExecutionPlan jobAbstraction);
 
     ExecutionPlanAndJobGraphUpdaterFactory getStreamRelatedInstanceFactory();
 
     boolean registerNewController(String controllerID, String className, String sourceCode);
-
-
 }

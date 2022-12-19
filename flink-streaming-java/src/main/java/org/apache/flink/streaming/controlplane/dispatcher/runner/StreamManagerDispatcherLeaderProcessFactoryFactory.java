@@ -18,19 +18,15 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
-import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
-import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 import org.apache.flink.runtime.dispatcher.runner.DispatcherLeaderProcessFactory;
+import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 
 import java.util.concurrent.Executor;
 
-/**
- * Factory for {@link DispatcherLeaderProcessFactory}.
- */
+/** Factory for {@link DispatcherLeaderProcessFactory}. */
 public interface StreamManagerDispatcherLeaderProcessFactoryFactory {
 
     StreamManagerDispatcherLeaderProcessFactory createFactory(

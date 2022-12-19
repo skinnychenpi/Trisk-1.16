@@ -20,20 +20,17 @@ package org.apache.flink.streaming.controlplane.dispatcher;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobWriter;
-import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
-import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRunner;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
+import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
+import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRunner;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRunnerImpl;
 
-/**
- * @author trx
- * Factory for a {@link StreamManagerRunner}.
- */
+/** @author trx Factory for a {@link StreamManagerRunner}. */
 @FunctionalInterface
 public interface StreamManagerRunnerFactory {
 
@@ -45,5 +42,6 @@ public interface StreamManagerRunnerFactory {
             LeaderGatewayRetriever<DispatcherGateway> dispatcherGatewayRetriever,
             LibraryCacheManager libraryCacheManager,
             BlobWriter blobWriter,
-            FatalErrorHandler fatalErrorHandler) throws Exception;
+            FatalErrorHandler fatalErrorHandler)
+            throws Exception;
 }

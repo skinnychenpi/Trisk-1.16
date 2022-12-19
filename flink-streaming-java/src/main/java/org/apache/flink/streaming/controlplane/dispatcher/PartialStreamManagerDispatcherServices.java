@@ -30,32 +30,23 @@ import javax.annotation.Nonnull;
 import java.util.concurrent.Executor;
 
 /**
- * Partial {@link DispatcherServices} services container which needs to
- * be completed before being given to the {@link Dispatcher}.
+ * Partial {@link DispatcherServices} services container which needs to be completed before being
+ * given to the {@link Dispatcher}.
  */
 public class PartialStreamManagerDispatcherServices {
 
-    @Nonnull
-    private final Configuration configuration;
+    @Nonnull private final Configuration configuration;
 
-    @Nonnull
-    private final HighAvailabilityServices highAvailabilityServices;
+    @Nonnull private final HighAvailabilityServices highAvailabilityServices;
 
-    @Nonnull
-    private final BlobServer blobServer;
+    @Nonnull private final BlobServer blobServer;
 
-    @Nonnull
-    private final HeartbeatServices heartbeatServices;
+    @Nonnull private final HeartbeatServices heartbeatServices;
 
-    @Nonnull
-    private final FatalErrorHandler fatalErrorHandler;
-    @Nonnull
-    private final HistoryServerArchivist historyServerArchivist;
-    @Nonnull
-    private final Executor ioExecutor;
-    @Nonnull
-    private final ExecutionGraphInfoStore executionGraphInfoStore;
-
+    @Nonnull private final FatalErrorHandler fatalErrorHandler;
+    @Nonnull private final HistoryServerArchivist historyServerArchivist;
+    @Nonnull private final Executor ioExecutor;
+    @Nonnull private final ExecutionGraphInfoStore executionGraphInfoStore;
 
     public PartialStreamManagerDispatcherServices(
             @Nonnull Configuration configuration,
@@ -105,10 +96,12 @@ public class PartialStreamManagerDispatcherServices {
     public HistoryServerArchivist getHistoryServerArchivist() {
         return historyServerArchivist;
     }
+
     @Nonnull
     public Executor getIoExecutor() {
         return ioExecutor;
     }
+
     @Nonnull
     public ExecutionGraphInfoStore getExecutionGraphInfoStore() {
         return executionGraphInfoStore;

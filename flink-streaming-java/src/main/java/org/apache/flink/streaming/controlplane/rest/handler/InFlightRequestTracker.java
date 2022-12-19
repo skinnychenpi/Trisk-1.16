@@ -1,6 +1,5 @@
 package org.apache.flink.streaming.controlplane.rest.handler;
 
-
 import org.apache.flink.runtime.rest.handler.AbstractHandler;
 
 import javax.annotation.concurrent.ThreadSafe;

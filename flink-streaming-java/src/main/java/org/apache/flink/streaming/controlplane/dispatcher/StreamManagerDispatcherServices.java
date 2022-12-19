@@ -30,37 +30,25 @@ import javax.annotation.Nonnull;
 
 import java.util.concurrent.Executor;
 
-/**
- * {@link Dispatcher} services container.
- */
+/** {@link Dispatcher} services container. */
 public class StreamManagerDispatcherServices {
 
-    @Nonnull
-    private final Configuration configuration;
+    @Nonnull private final Configuration configuration;
 
-    @Nonnull
-    private final HighAvailabilityServices highAvailabilityServices;
+    @Nonnull private final HighAvailabilityServices highAvailabilityServices;
 
-    @Nonnull
-    private final BlobServer blobServer;
+    @Nonnull private final BlobServer blobServer;
 
-    @Nonnull
-    private final HeartbeatServices heartbeatServices;
+    @Nonnull private final HeartbeatServices heartbeatServices;
 
-    @Nonnull
-    private final FatalErrorHandler fatalErrorHandler;
+    @Nonnull private final FatalErrorHandler fatalErrorHandler;
 
-    @Nonnull
-    private final JobGraphWriter jobGraphWriter;
+    @Nonnull private final JobGraphWriter jobGraphWriter;
 
-    @Nonnull
-    private final StreamManagerRunnerFactory streamManagerRunnerFactory;
-    @Nonnull
-    private final Executor ioExecutor;
-    @Nonnull
-    private final HistoryServerArchivist historyServerArchivist;
-    @Nonnull
-    private final ExecutionGraphInfoStore executionGraphInfoStore;
+    @Nonnull private final StreamManagerRunnerFactory streamManagerRunnerFactory;
+    @Nonnull private final Executor ioExecutor;
+    @Nonnull private final HistoryServerArchivist historyServerArchivist;
+    @Nonnull private final ExecutionGraphInfoStore executionGraphInfoStore;
 
     public StreamManagerDispatcherServices(
             @Nonnull Configuration configuration,
@@ -72,8 +60,7 @@ public class StreamManagerDispatcherServices {
             @Nonnull Executor ioExecutor,
             @Nonnull ExecutionGraphInfoStore executionGraphInfoStore,
             @Nonnull JobGraphWriter jobGraphWriter,
-            @Nonnull StreamManagerRunnerFactory streamManagerRunnerFactory
-            ) {
+            @Nonnull StreamManagerRunnerFactory streamManagerRunnerFactory) {
         this.configuration = configuration;
         this.highAvailabilityServices = highAvailabilityServices;
         this.blobServer = blobServer;
@@ -120,10 +107,12 @@ public class StreamManagerDispatcherServices {
     public Executor getIoExecutor() {
         return ioExecutor;
     }
+
     @Nonnull
     public HistoryServerArchivist getHistoryServerArchivist() {
         return historyServerArchivist;
     }
+
     @Nonnull
     public ExecutionGraphInfoStore getArchivedExecutionGraphStore() {
         return executionGraphInfoStore;
@@ -135,7 +124,9 @@ public class StreamManagerDispatcherServices {
     }
 
     public static StreamManagerDispatcherServices from(
-            @Nonnull PartialStreamManagerDispatcherServicesWithJobGraphStore partialDispatcherServicesWithJobGraphStore,
+            @Nonnull
+                    PartialStreamManagerDispatcherServicesWithJobGraphStore
+                            partialDispatcherServicesWithJobGraphStore,
             @Nonnull StreamManagerRunnerFactory streamManagerRunnerFactory) {
         return new StreamManagerDispatcherServices(
                 partialDispatcherServicesWithJobGraphStore.getConfiguration(),

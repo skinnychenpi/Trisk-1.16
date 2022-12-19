@@ -1,41 +1,42 @@
 package org.apache.flink.streaming.controlplane.entrypoint.streammanager;
+
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypointUtils;
 import org.apache.flink.runtime.entrypoint.EntrypointClusterConfiguration;
 import org.apache.flink.runtime.entrypoint.EntrypointClusterConfigurationParserFactory;
 import org.apache.flink.runtime.entrypoint.StandaloneSessionClusterEntrypoint;
-import org.apache.flink.runtime.entrypoint.component.DefaultDispatcherResourceManagerComponentFactory;
-import org.apache.flink.runtime.resourcemanager.StandaloneResourceManagerFactory;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.JvmShutdownSafeguard;
 import org.apache.flink.runtime.util.SignalHandler;
-import org.apache.flink.streaming.controlplane.entrypoint.ClusterControllerEntrypoint;
-import org.apache.flink.streaming.controlplane.entrypoint.SessionClusterControllerEntrypoint;
 
 /** Entry point for the standalone session controller cluster. */
-public class StandaloneSessionStreamManagerEntrypoint
-        extends SessionStreamManagerEntrypoint {
+public class StandaloneSessionStreamManagerEntrypoint extends SessionStreamManagerEntrypoint {
 
     public StandaloneSessionStreamManagerEntrypoint(Configuration configuration) {
         super(configuration);
     }
 
-//    @Override
-//    protected DefaultDispatcherResourceManagerComponentFactory
-//    createDispatcherResourceManagerComponentFactory(Configuration configuration) {
-//        return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
-//                StandaloneResourceManagerFactory.getInstance());
-//    }
+    //    @Override
+    //    protected DefaultDispatcherResourceManagerComponentFactory
+    //    createDispatcherResourceManagerComponentFactory(Configuration configuration) {
+    //        return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
+    //                StandaloneResourceManagerFactory.getInstance());
+    //    }
 
     @Override
-    protected DefaultStreamManagerDispatcherComponentFactory createStreamManagerDispatcherComponentFactory(Configuration configuration) {
+    protected DefaultStreamManagerDispatcherComponentFactory
+            createStreamManagerDispatcherComponentFactory(Configuration configuration) {
         return DefaultStreamManagerDispatcherComponentFactory.createSessionComponentFactory();
     }
 
     public static void main(String[] args) {
         // startup checks and logging
         EnvironmentInformation.logEnvironmentInfo(
-                LOG, org.apache.flink.streaming.controlplane.entrypoint.StandaloneSessionClusterControllerEntrypoint.class.getSimpleName(), args);
+                LOG,
+                org.apache.flink.streaming.controlplane.entrypoint
+                        .StandaloneSessionClusterControllerEntrypoint.class
+                        .getSimpleName(),
+                args);
         SignalHandler.register(LOG);
         JvmShutdownSafeguard.installAsShutdownHook(LOG);
 
@@ -52,4 +53,3 @@ public class StandaloneSessionStreamManagerEntrypoint
         StreamManagerEntrypoint.runClusterEntrypoint(entrypoint);
     }
 }
-

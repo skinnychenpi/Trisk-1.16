@@ -1,4 +1,3 @@
 package org.apache.flink.runtime.controlplane;
 
-public class ExecutionPlanByReflectAndJobGraphUpdaterFactory {
-}
+public class ExecutionPlanByReflectAndJobGraphUpdaterFactory {}

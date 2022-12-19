@@ -18,29 +18,27 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
-import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
-import org.apache.flink.streaming.controlplane.dispatcher.JobStreamManagerDispatcherFactory;
-import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 import org.apache.flink.runtime.dispatcher.runner.JobDispatcherLeaderProcessFactory;
 import org.apache.flink.runtime.entrypoint.component.JobGraphRetriever;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.streaming.controlplane.dispatcher.JobStreamManagerDispatcherFactory;
+import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.concurrent.Executor;
 
-/**
- * Factory for the {@link JobDispatcherLeaderProcessFactory}.
- */
-public class JobStreamManagerDispatcherLeaderProcessFactoryFactory implements StreamManagerDispatcherLeaderProcessFactoryFactory {
+/** Factory for the {@link JobDispatcherLeaderProcessFactory}. */
+public class JobStreamManagerDispatcherLeaderProcessFactoryFactory
+        implements StreamManagerDispatcherLeaderProcessFactoryFactory {
 
     private final JobGraphRetriever jobGraphRetriever;
 
-    private JobStreamManagerDispatcherLeaderProcessFactoryFactory(JobGraphRetriever jobGraphRetriever) {
+    private JobStreamManagerDispatcherLeaderProcessFactoryFactory(
+            JobGraphRetriever jobGraphRetriever) {
         this.jobGraphRetriever = jobGraphRetriever;
     }
 
@@ -55,24 +53,25 @@ public class JobStreamManagerDispatcherLeaderProcessFactoryFactory implements St
         final JobGraph jobGraph;
 
         try {
-            jobGraph = jobGraphRetriever.retrieveJobGraph(partialDispatcherServices.getConfiguration());
+            jobGraph =
+                    jobGraphRetriever.retrieveJobGraph(
+                            partialDispatcherServices.getConfiguration());
         } catch (FlinkException e) {
             throw new FlinkRuntimeException("Could not retrieve the JobGraph.", e);
         }
 
-        final DefaultStreamManagerDispatcherGatewayServiceFactory defaultDispatcherServiceFactory = new DefaultStreamManagerDispatcherGatewayServiceFactory(
-                JobStreamManagerDispatcherFactory.INSTANCE,
-                rpcService,
-                partialDispatcherServices
-        );
+        final DefaultStreamManagerDispatcherGatewayServiceFactory defaultDispatcherServiceFactory =
+                new DefaultStreamManagerDispatcherGatewayServiceFactory(
+                        JobStreamManagerDispatcherFactory.INSTANCE,
+                        rpcService,
+                        partialDispatcherServices);
 
         return new JobStreamManagerDispatcherLeaderProcessFactory(
-                defaultDispatcherServiceFactory,
-                jobGraph,
-                fatalErrorHandler);
+                defaultDispatcherServiceFactory, jobGraph, fatalErrorHandler);
     }
 
-    public static JobStreamManagerDispatcherLeaderProcessFactoryFactory create(JobGraphRetriever jobGraphRetriever) {
+    public static JobStreamManagerDispatcherLeaderProcessFactoryFactory create(
+            JobGraphRetriever jobGraphRetriever) {
         return new JobStreamManagerDispatcherLeaderProcessFactoryFactory(jobGraphRetriever);
     }
 }

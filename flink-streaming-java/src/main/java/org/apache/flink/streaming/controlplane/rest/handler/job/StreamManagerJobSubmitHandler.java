@@ -24,8 +24,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.blob.BlobClient;
 import org.apache.flink.runtime.client.ClientUtils;
-import org.apache.flink.streaming.controlplane.rest.handler.AbstractStreamManagerRestHandler;
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherGateway;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
@@ -35,10 +33,14 @@ import org.apache.flink.runtime.rest.messages.job.JobSubmitHeaders;
 import org.apache.flink.runtime.rest.messages.job.JobSubmitRequestBody;
 import org.apache.flink.runtime.rest.messages.job.JobSubmitResponseBody;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
-import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherGateway;
+import org.apache.flink.streaming.controlplane.rest.handler.AbstractStreamManagerRestHandler;
 import org.apache.flink.util.FlinkException;
 
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
+
 import javax.annotation.Nonnull;
+
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.net.InetSocketAddress;
@@ -50,10 +52,13 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-/**
- * This handler can be used to submit jobs to a Flink cluster.
- */
-public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRestHandler<StreamManagerDispatcherGateway, JobSubmitRequestBody, JobSubmitResponseBody, EmptyMessageParameters> {
+/** This handler can be used to submit jobs to a Flink cluster. */
+public final class StreamManagerJobSubmitHandler
+        extends AbstractStreamManagerRestHandler<
+                StreamManagerDispatcherGateway,
+                JobSubmitRequestBody,
+                JobSubmitResponseBody,
+                EmptyMessageParameters> {
 
     private static final String FILE_TYPE_JOB_GRAPH = "JobGraph";
     private static final String FILE_TYPE_JAR = "Jar";
@@ -74,28 +79,31 @@ public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRe
     }
 
     @Override
-    protected CompletableFuture<JobSubmitResponseBody> handleRequest(@Nonnull HandlerRequest<JobSubmitRequestBody> request, @Nonnull StreamManagerDispatcherGateway gateway) throws RestHandlerException {
+    protected CompletableFuture<JobSubmitResponseBody> handleRequest(
+            @Nonnull HandlerRequest<JobSubmitRequestBody> request,
+            @Nonnull StreamManagerDispatcherGateway gateway)
+            throws RestHandlerException {
         final Collection<File> uploadedFiles = request.getUploadedFiles();
-        final Map<String, Path> nameToFile = uploadedFiles.stream().collect(Collectors.toMap(
-                File::getName,
-                Path::fromLocalFile
-        ));
+        final Map<String, Path> nameToFile =
+                uploadedFiles.stream()
+                        .collect(Collectors.toMap(File::getName, Path::fromLocalFile));
 
         if (uploadedFiles.size() != nameToFile.size()) {
             throw new RestHandlerException(
-                    String.format("The number of uploaded files was %s than the expected count. Expected: %s Actual %s",
+                    String.format(
+                            "The number of uploaded files was %s than the expected count. Expected: %s Actual %s",
                             uploadedFiles.size() < nameToFile.size() ? "lower" : "higher",
                             nameToFile.size(),
                             uploadedFiles.size()),
-                    HttpResponseStatus.BAD_REQUEST
-            );
+                    HttpResponseStatus.BAD_REQUEST);
         }
 
         final JobSubmitRequestBody requestBody = request.getRequestBody();
 
         if (requestBody.jobGraphFileName == null) {
             throw new RestHandlerException(
-                    String.format("The %s field must not be omitted or be null.",
+                    String.format(
+                            "The %s field must not be omitted or be null.",
                             JobSubmitRequestBody.FIELD_NAME_JOB_GRAPH),
                     HttpResponseStatus.BAD_REQUEST);
         }
@@ -104,34 +112,50 @@ public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRe
 
         Collection<Path> jarFiles = getJarFilesToUpload(requestBody.jarFileNames, nameToFile);
 
-        Collection<Tuple2<String, Path>> artifacts = getArtifactFilesToUpload(requestBody.artifactFileNames, nameToFile);
+        Collection<Tuple2<String, Path>> artifacts =
+                getArtifactFilesToUpload(requestBody.artifactFileNames, nameToFile);
 
-        CompletableFuture<JobGraph> finalizedJobGraphFuture = uploadJobGraphFiles(gateway, jobGraphFuture, jarFiles, artifacts, configuration);
+        CompletableFuture<JobGraph> finalizedJobGraphFuture =
+                uploadJobGraphFiles(gateway, jobGraphFuture, jarFiles, artifacts, configuration);
 
-        CompletableFuture<Acknowledge> jobSubmissionFuture = finalizedJobGraphFuture.thenCompose(jobGraph -> gateway.submitJob(jobGraph, timeout));
+        CompletableFuture<Acknowledge> jobSubmissionFuture =
+                finalizedJobGraphFuture.thenCompose(
+                        jobGraph -> gateway.submitJob(jobGraph, timeout));
 
-        return jobSubmissionFuture.thenCombine(jobGraphFuture,
+        return jobSubmissionFuture.thenCombine(
+                jobGraphFuture,
                 (ack, jobGraph) -> new JobSubmitResponseBody("/jobs/" + jobGraph.getJobID()));
     }
 
-    private CompletableFuture<JobGraph> loadJobGraph(JobSubmitRequestBody requestBody, Map<String, Path> nameToFile) throws MissingFileException {
-        final Path jobGraphFile = getPathAndAssertUpload(requestBody.jobGraphFileName, FILE_TYPE_JOB_GRAPH, nameToFile);
+    private CompletableFuture<JobGraph> loadJobGraph(
+            JobSubmitRequestBody requestBody, Map<String, Path> nameToFile)
+            throws MissingFileException {
+        final Path jobGraphFile =
+                getPathAndAssertUpload(
+                        requestBody.jobGraphFileName, FILE_TYPE_JOB_GRAPH, nameToFile);
 
-        return CompletableFuture.supplyAsync(() -> {
-            JobGraph jobGraph;
-            try (ObjectInputStream objectIn = new ObjectInputStream(jobGraphFile.getFileSystem().open(jobGraphFile))) {
-                jobGraph = (JobGraph) objectIn.readObject();
-            } catch (Exception e) {
-                throw new CompletionException(new RestHandlerException(
-                        "Failed to deserialize JobGraph.",
-                        HttpResponseStatus.BAD_REQUEST,
-                        e));
-            }
-            return jobGraph;
-        }, executor);
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    JobGraph jobGraph;
+                    try (ObjectInputStream objectIn =
+                            new ObjectInputStream(
+                                    jobGraphFile.getFileSystem().open(jobGraphFile))) {
+                        jobGraph = (JobGraph) objectIn.readObject();
+                    } catch (Exception e) {
+                        throw new CompletionException(
+                                new RestHandlerException(
+                                        "Failed to deserialize JobGraph.",
+                                        HttpResponseStatus.BAD_REQUEST,
+                                        e));
+                    }
+                    return jobGraph;
+                },
+                executor);
     }
 
-    private static Collection<Path> getJarFilesToUpload(Collection<String> jarFileNames, Map<String, Path> nameToFileMap) throws MissingFileException {
+    private static Collection<Path> getJarFilesToUpload(
+            Collection<String> jarFileNames, Map<String, Path> nameToFileMap)
+            throws MissingFileException {
         Collection<Path> jarFiles = new ArrayList<>(jarFileNames.size());
         for (String jarFileName : jarFileNames) {
             Path jarFile = getPathAndAssertUpload(jarFileName, FILE_TYPE_JAR, nameToFileMap);
@@ -142,10 +166,13 @@ public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRe
 
     private static Collection<Tuple2<String, Path>> getArtifactFilesToUpload(
             Collection<JobSubmitRequestBody.DistributedCacheFile> artifactEntries,
-            Map<String, Path> nameToFileMap) throws MissingFileException {
+            Map<String, Path> nameToFileMap)
+            throws MissingFileException {
         Collection<Tuple2<String, Path>> artifacts = new ArrayList<>(artifactEntries.size());
         for (JobSubmitRequestBody.DistributedCacheFile artifactFileName : artifactEntries) {
-            Path artifactFile = getPathAndAssertUpload(artifactFileName.fileName, FILE_TYPE_ARTIFACT, nameToFileMap);
+            Path artifactFile =
+                    getPathAndAssertUpload(
+                            artifactFileName.fileName, FILE_TYPE_ARTIFACT, nameToFileMap);
             artifacts.add(Tuple2.of(artifactFileName.entryName, new Path(artifactFile.toString())));
         }
         return artifacts;
@@ -159,21 +186,31 @@ public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRe
             Configuration configuration) {
         CompletableFuture<Integer> blobServerPortFuture = gateway.getBlobServerPort(timeout);
 
-        return jobGraphFuture.thenCombine(blobServerPortFuture, (JobGraph jobGraph, Integer blobServerPort) -> {
-            final InetSocketAddress address = new InetSocketAddress(gateway.getHostname(), blobServerPort);
-            try {
-                ClientUtils.uploadJobGraphFiles(jobGraph, jarFiles, artifacts, () -> new BlobClient(address, configuration));
-            } catch (FlinkException e) {
-                throw new CompletionException(new RestHandlerException(
-                        "Could not upload job files.",
-                        HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                        e));
-            }
-            return jobGraph;
-        });
+        return jobGraphFuture.thenCombine(
+                blobServerPortFuture,
+                (JobGraph jobGraph, Integer blobServerPort) -> {
+                    final InetSocketAddress address =
+                            new InetSocketAddress(gateway.getHostname(), blobServerPort);
+                    try {
+                        ClientUtils.uploadJobGraphFiles(
+                                jobGraph,
+                                jarFiles,
+                                artifacts,
+                                () -> new BlobClient(address, configuration));
+                    } catch (FlinkException e) {
+                        throw new CompletionException(
+                                new RestHandlerException(
+                                        "Could not upload job files.",
+                                        HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                                        e));
+                    }
+                    return jobGraph;
+                });
     }
 
-    private static Path getPathAndAssertUpload(String fileName, String type, Map<String, Path> uploadedFiles) throws MissingFileException {
+    private static Path getPathAndAssertUpload(
+            String fileName, String type, Map<String, Path> uploadedFiles)
+            throws MissingFileException {
         final Path file = uploadedFiles.get(fileName);
         if (file == null) {
             throw new MissingFileException(type, fileName);
@@ -186,7 +223,9 @@ public final class StreamManagerJobSubmitHandler extends AbstractStreamManagerRe
         private static final long serialVersionUID = -7954810495610194965L;
 
         MissingFileException(String type, String fileName) {
-            super(type + " file " + fileName + " could not be found on the server.", HttpResponseStatus.BAD_REQUEST);
+            super(
+                    type + " file " + fileName + " could not be found on the server.",
+                    HttpResponseStatus.BAD_REQUEST);
         }
     }
 }

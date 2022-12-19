@@ -21,7 +21,6 @@ package org.apache.flink.streaming.controlplane.rest.handler.job;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
@@ -29,15 +28,16 @@ import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.rest.messages.*;
 import org.apache.flink.runtime.rest.messages.job.*;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
-import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.flink.streaming.controlplane.rest.handler.AbstractStreamManagerRestHandler;
 import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
+
 import javax.annotation.Nonnull;
+
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -46,11 +46,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
-/**
- * Returns the {@link org.apache.flink.api.common.JobExecutionResult} for a given {@link JobID}.
- */
+/** Returns the {@link org.apache.flink.api.common.JobExecutionResult} for a given {@link JobID}. */
 public class RegisterStreamManagerControllerHandler
-        extends AbstractStreamManagerRestHandler<StreamManagerRestfulGateway, SubmitControllerRequestBody, EmptyResponseBody, JobMessageParameters> {
+        extends AbstractStreamManagerRestHandler<
+                StreamManagerRestfulGateway,
+                SubmitControllerRequestBody,
+                EmptyResponseBody,
+                JobMessageParameters> {
 
     public RegisterStreamManagerControllerHandler(
             final GatewayRetriever<? extends StreamManagerRestfulGateway> leaderRetriever,
@@ -66,11 +68,13 @@ public class RegisterStreamManagerControllerHandler
     @Override
     protected CompletableFuture<EmptyResponseBody> handleRequest(
             @Nonnull final HandlerRequest<SubmitControllerRequestBody> request,
-            @Nonnull final StreamManagerRestfulGateway gateway) throws RestHandlerException {
+            @Nonnull final StreamManagerRestfulGateway gateway)
+            throws RestHandlerException {
 
         final JobID jobId = request.getPathParameter(JobIDPathParameter.class);
 
-        final CompletableFuture<JobStatus> jobStatusFuture = gateway.requestJobStatus(jobId, timeout);
+        final CompletableFuture<JobStatus> jobStatusFuture =
+                gateway.requestJobStatus(jobId, timeout);
 
         final SubmitControllerRequestBody requestBody = request.getRequestBody();
 
@@ -79,21 +83,29 @@ public class RegisterStreamManagerControllerHandler
         String controllerID = Objects.requireNonNull(requestBody.controllerID);
 
         final Collection<File> uploadedFiles = request.getUploadedFiles();
-        final Map<String, Path> nameToFile = uploadedFiles.stream().collect(Collectors.toMap(
-                File::getName,
-                Path::fromLocalFile
-        ));
-        return jobStatusFuture.thenCompose(
-                jobStatus -> {
-                    if (!jobStatus.isGloballyTerminalState()) {
-                        return sendControllerToGateway(gateway, jobId, controllerID, className, classFileName, nameToFile);
-                    } else {
-                        return CompletableFuture.completedFuture(
-                                EmptyResponseBody.getInstance());
-                    }
-                }).exceptionally(throwable -> {
-            throw propagateException(throwable);
-        });
+        final Map<String, Path> nameToFile =
+                uploadedFiles.stream()
+                        .collect(Collectors.toMap(File::getName, Path::fromLocalFile));
+        return jobStatusFuture
+                .thenCompose(
+                        jobStatus -> {
+                            if (!jobStatus.isGloballyTerminalState()) {
+                                return sendControllerToGateway(
+                                        gateway,
+                                        jobId,
+                                        controllerID,
+                                        className,
+                                        classFileName,
+                                        nameToFile);
+                            } else {
+                                return CompletableFuture.completedFuture(
+                                        EmptyResponseBody.getInstance());
+                            }
+                        })
+                .exceptionally(
+                        throwable -> {
+                            throw propagateException(throwable);
+                        });
     }
 
     private CompletableFuture<EmptyResponseBody> sendControllerToGateway(
@@ -111,9 +123,8 @@ public class RegisterStreamManagerControllerHandler
         } catch (IOException e) {
             e.printStackTrace();
         }
-        //todo with null source code
-        return gateway
-                .registerNewController(jobId, controllerID, className, sourceCode, timeout)
+        // todo with null source code
+        return gateway.registerNewController(jobId, controllerID, className, sourceCode, timeout)
                 .thenApply(r -> EmptyResponseBody.getInstance());
     }
 
@@ -121,10 +132,9 @@ public class RegisterStreamManagerControllerHandler
         final Throwable cause = ExceptionUtils.stripCompletionException(throwable);
 
         if (cause instanceof FlinkJobNotFoundException) {
-            throw new CompletionException(new RestHandlerException(
-                    throwable.getMessage(),
-                    HttpResponseStatus.NOT_FOUND,
-                    throwable));
+            throw new CompletionException(
+                    new RestHandlerException(
+                            throwable.getMessage(), HttpResponseStatus.NOT_FOUND, throwable));
         } else {
             throw new CompletionException(throwable);
         }

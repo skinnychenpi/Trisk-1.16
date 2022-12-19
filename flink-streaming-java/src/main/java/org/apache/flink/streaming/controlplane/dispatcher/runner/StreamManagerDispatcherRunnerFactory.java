@@ -18,20 +18,15 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
-import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
-import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 import org.apache.flink.runtime.jobmanager.JobPersistenceComponentFactory;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.streaming.controlplane.dispatcher.PartialStreamManagerDispatcherServices;
 
 import java.util.concurrent.Executor;
 
-/**
- * Factory interface for the {@link StreamManagerDispatcherRunner}.
- */
+/** Factory interface for the {@link StreamManagerDispatcherRunner}. */
 public interface StreamManagerDispatcherRunnerFactory {
 
     StreamManagerDispatcherRunner createStreamManagerDispatcherRunner(
@@ -40,5 +35,6 @@ public interface StreamManagerDispatcherRunnerFactory {
             JobPersistenceComponentFactory jobPersistenceComponentFactory,
             Executor ioExecutor,
             RpcService rpcService,
-            PartialStreamManagerDispatcherServices partialDispatcherServices) throws Exception;
+            PartialStreamManagerDispatcherServices partialDispatcherServices)
+            throws Exception;
 }

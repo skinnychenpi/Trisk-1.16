@@ -21,23 +21,22 @@ package org.apache.flink.runtime.rest.messages.job;
 import org.apache.flink.runtime.rest.FileUploadHandler;
 import org.apache.flink.runtime.rest.HttpMethodWrapper;
 import org.apache.flink.runtime.rest.messages.*;
-
 import org.apache.flink.runtime.rest.versioning.RestAPIVersion;
 
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 
 import java.util.Collection;
 
-/**
- * These headers define the protocol for submitting a job to a flink cluster.
- */
-public class StreamManagerControllerHeaders implements MessageHeaders<SubmitControllerRequestBody, EmptyResponseBody, JobMessageParameters> {
+/** These headers define the protocol for submitting a job to a flink cluster. */
+public class StreamManagerControllerHeaders
+        implements MessageHeaders<
+                SubmitControllerRequestBody, EmptyResponseBody, JobMessageParameters> {
 
     private static final String URL = "/jobs/:" + JobIDPathParameter.KEY + "/smcontroller";
-    private static final StreamManagerControllerHeaders INSTANCE = new StreamManagerControllerHeaders();
+    private static final StreamManagerControllerHeaders INSTANCE =
+            new StreamManagerControllerHeaders();
 
-    private StreamManagerControllerHeaders() {
-    }
+    private StreamManagerControllerHeaders() {}
 
     @Override
     public Class<SubmitControllerRequestBody> getRequestClass() {
@@ -81,10 +80,12 @@ public class StreamManagerControllerHeaders implements MessageHeaders<SubmitCont
 
     @Override
     public String getDescription() {
-        return "Submits a job. This call is primarily intended to be used by the Flink client. This call expects a " +
-                "multipart/form-data request that consists of file uploads for the serialized JobGraph, jars and " +
-                "distributed cache artifacts and an attribute named \"" + FileUploadHandler.HTTP_ATTRIBUTE_REQUEST + "\" for " +
-                "the JSON payload.";
+        return "Submits a job. This call is primarily intended to be used by the Flink client. This call expects a "
+                + "multipart/form-data request that consists of file uploads for the serialized JobGraph, jars and "
+                + "distributed cache artifacts and an attribute named \""
+                + FileUploadHandler.HTTP_ATTRIBUTE_REQUEST
+                + "\" for "
+                + "the JSON payload.";
     }
 
     @Override

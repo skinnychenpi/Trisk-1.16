@@ -256,8 +256,8 @@ public interface HighAvailabilityServices
     LeaderElectionService getStreamManagerDispatcherLeaderElectionService();
 
     /**
-     * Gets the leader retriever for the dispatcher. This leader retrieval service
-     * is not always accessible.
+     * Gets the leader retriever for the dispatcher. This leader retrieval service is not always
+     * accessible.
      */
     LeaderRetrievalService getStreamManagerDispatcherLeaderRetriever();
 }

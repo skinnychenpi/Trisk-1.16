@@ -20,20 +20,18 @@ package org.apache.flink.streaming.controlplane.dispatcher;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherId;
-import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Gateway for the Dispatcher component.
- */
-public interface StreamManagerDispatcherGateway extends FencedRpcGateway<StreamManagerDispatcherId>, StreamManagerRestfulGateway {
+/** Gateway for the Dispatcher component. */
+public interface StreamManagerDispatcherGateway
+        extends FencedRpcGateway<StreamManagerDispatcherId>, StreamManagerRestfulGateway {
 
     /**
      * Submit a job to the dispatcher.
@@ -42,9 +40,7 @@ public interface StreamManagerDispatcherGateway extends FencedRpcGateway<StreamM
      * @param timeout RPC timeout
      * @return A future acknowledge if the submission succeeded
      */
-    CompletableFuture<Acknowledge> submitJob(
-            JobGraph jobGraph,
-            @RpcTimeout Time timeout);
+    CompletableFuture<Acknowledge> submitJob(JobGraph jobGraph, @RpcTimeout Time timeout);
 
     /**
      * List the current set of submitted jobs.
@@ -52,8 +48,7 @@ public interface StreamManagerDispatcherGateway extends FencedRpcGateway<StreamM
      * @param timeout RPC timeout
      * @return A future collection of currently submitted jobs
      */
-    CompletableFuture<Collection<JobID>> listJobs(
-            @RpcTimeout Time timeout);
+    CompletableFuture<Collection<JobID>> listJobs(@RpcTimeout Time timeout);
 
     /**
      * Returns the port of the blob server.

@@ -19,8 +19,6 @@
 package org.apache.flink.streaming.controlplane.rest.handler;
 
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.util.concurrent.FutureUtils;
-import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.rest.handler.util.HandlerUtils;
@@ -29,18 +27,23 @@ import org.apache.flink.runtime.rest.messages.MessageParameters;
 import org.apache.flink.runtime.rest.messages.RequestBody;
 import org.apache.flink.runtime.rest.messages.ResponseBody;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
+import org.apache.flink.streaming.controlplane.webmonitor.StreamManagerRestfulGateway;
+import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.concurrent.FutureUtils;
+
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpRequest;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
-import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Super class for netty-based handlers that work with {@link RequestBody}s and {@link ResponseBody}s.
+ * Super class for netty-based handlers that work with {@link RequestBody}s and {@link
+ * ResponseBody}s.
  *
  * <p>Subclasses must be thread-safe.
  *
@@ -48,7 +51,12 @@ import java.util.concurrent.CompletableFuture;
  * @param <P> type of outgoing responses
  */
 @ChannelHandler.Sharable
-public abstract class AbstractStreamManagerRestHandler<T extends StreamManagerRestfulGateway, R extends RequestBody, P extends ResponseBody, M extends MessageParameters> extends AbstractStreamManagerHandler<T, R, M> {
+public abstract class AbstractStreamManagerRestHandler<
+                T extends StreamManagerRestfulGateway,
+                R extends RequestBody,
+                P extends ResponseBody,
+                M extends MessageParameters>
+        extends AbstractStreamManagerHandler<T, R, M> {
 
     private final MessageHeaders<R, P, M> messageHeaders;
 
@@ -66,7 +74,11 @@ public abstract class AbstractStreamManagerRestHandler<T extends StreamManagerRe
     }
 
     @Override
-    protected CompletableFuture<Void> respondToRequest(ChannelHandlerContext ctx, HttpRequest httpRequest, HandlerRequest<R> handlerRequest, T gateway) {
+    protected CompletableFuture<Void> respondToRequest(
+            ChannelHandlerContext ctx,
+            HttpRequest httpRequest,
+            HandlerRequest<R> handlerRequest,
+            T gateway) {
         CompletableFuture<P> response;
 
         try {
@@ -75,23 +87,33 @@ public abstract class AbstractStreamManagerRestHandler<T extends StreamManagerRe
             response = FutureUtils.completedExceptionally(e);
         }
 
-        return response.thenAccept(resp -> HandlerUtils.sendResponse(ctx, httpRequest, resp, messageHeaders.getResponseStatusCode(), responseHeaders));
+        return response.thenAccept(
+                resp ->
+                        HandlerUtils.sendResponse(
+                                ctx,
+                                httpRequest,
+                                resp,
+                                messageHeaders.getResponseStatusCode(),
+                                responseHeaders));
     }
 
     /**
-     * This method is called for every incoming request and returns a {@link CompletableFuture} containing a the response.
+     * This method is called for every incoming request and returns a {@link CompletableFuture}
+     * containing a the response.
      *
-     * <p>Implementations may decide whether to throw {@link RestHandlerException}s or fail the returned
-     * {@link CompletableFuture} with a {@link RestHandlerException}.
+     * <p>Implementations may decide whether to throw {@link RestHandlerException}s or fail the
+     * returned {@link CompletableFuture} with a {@link RestHandlerException}.
      *
-     * <p>Failing the future with another exception type or throwing unchecked exceptions is regarded as an
-     * implementation error as it does not allow us to provide a meaningful HTTP status code. In this case a
-     * {@link HttpResponseStatus#INTERNAL_SERVER_ERROR} will be returned.
+     * <p>Failing the future with another exception type or throwing unchecked exceptions is
+     * regarded as an implementation error as it does not allow us to provide a meaningful HTTP
+     * status code. In this case a {@link HttpResponseStatus#INTERNAL_SERVER_ERROR} will be
+     * returned.
      *
      * @param request request that should be handled
      * @param gateway leader gateway
      * @return future containing a handler response
      * @throws RestHandlerException if the handling failed
      */
-    protected abstract CompletableFuture<P> handleRequest(@Nonnull HandlerRequest<R> request, @Nonnull T gateway) throws RestHandlerException;
+    protected abstract CompletableFuture<P> handleRequest(
+            @Nonnull HandlerRequest<R> request, @Nonnull T gateway) throws RestHandlerException;
 }

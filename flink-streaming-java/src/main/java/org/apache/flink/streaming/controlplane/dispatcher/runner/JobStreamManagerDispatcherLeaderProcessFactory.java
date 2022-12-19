@@ -24,18 +24,21 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 
 import java.util.UUID;
 
-/**
- * Factory for the {@link JobDispatcherLeaderProcess}.
- */
-public class JobStreamManagerDispatcherLeaderProcessFactory implements StreamManagerDispatcherLeaderProcessFactory {
-    private final AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayServiceFactory smDispatcherGatewayServiceFactory;
+/** Factory for the {@link JobDispatcherLeaderProcess}. */
+public class JobStreamManagerDispatcherLeaderProcessFactory
+        implements StreamManagerDispatcherLeaderProcessFactory {
+    private final AbstractStreamManagerDispatcherLeaderProcess
+                    .StreamManagerDispatcherGatewayServiceFactory
+            smDispatcherGatewayServiceFactory;
 
     private final JobGraph jobGraph;
 
     private final FatalErrorHandler fatalErrorHandler;
 
     JobStreamManagerDispatcherLeaderProcessFactory(
-            AbstractStreamManagerDispatcherLeaderProcess.StreamManagerDispatcherGatewayServiceFactory smDispatcherGatewayServiceFactory,
+            AbstractStreamManagerDispatcherLeaderProcess
+                            .StreamManagerDispatcherGatewayServiceFactory
+                    smDispatcherGatewayServiceFactory,
             JobGraph jobGraph,
             FatalErrorHandler fatalErrorHandler) {
         this.smDispatcherGatewayServiceFactory = smDispatcherGatewayServiceFactory;
@@ -45,6 +48,7 @@ public class JobStreamManagerDispatcherLeaderProcessFactory implements StreamMan
 
     @Override
     public StreamManagerDispatcherLeaderProcess create(UUID leaderSessionID) {
-        return new JobStreamManagerDispatcherLeaderProcess(leaderSessionID, smDispatcherGatewayServiceFactory, jobGraph, fatalErrorHandler);
+        return new JobStreamManagerDispatcherLeaderProcess(
+                leaderSessionID, smDispatcherGatewayServiceFactory, jobGraph, fatalErrorHandler);
     }
 }

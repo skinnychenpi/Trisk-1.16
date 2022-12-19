@@ -15,7 +15,8 @@ public interface StreamManagerRunnerRegistry extends LocallyCleanableResource {
      * Checks whether a {@link StreamManagerRunner} is registered under the given {@link JobID}.
      *
      * @param jobId The {@code JobID} to check.
-     * @return {@code true}, if a {@code StreamManagerRunner} is registered; {@code false} otherwise.
+     * @return {@code true}, if a {@code StreamManagerRunner} is registered; {@code false}
+     *     otherwise.
      */
     boolean isRegistered(JobID jobId);
 

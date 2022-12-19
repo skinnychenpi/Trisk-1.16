@@ -18,19 +18,16 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher;
 
-import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.JobMaster;
-import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.rpc.RpcService;
-import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
 
 import java.util.Collection;
 
 /**
- * Dispatcher implementation which spawns a {@link JobMaster} for each
- * submitted {@link JobGraph} within in the same process. This dispatcher
- * can be used as the default for all different session clusters.
+ * Dispatcher implementation which spawns a {@link JobMaster} for each submitted {@link JobGraph}
+ * within in the same process. This dispatcher can be used as the default for all different session
+ * clusters.
  */
 public class StandaloneStreamManagerDispatcher extends StreamManagerDispatcher {
     public StandaloneStreamManagerDispatcher(
@@ -38,13 +35,8 @@ public class StandaloneStreamManagerDispatcher extends StreamManagerDispatcher {
             String endpointId,
             StreamManagerDispatcherId fencingToken,
             Collection<JobGraph> recoveredJobs,
-            StreamManagerDispatcherServices dispatcherServices) throws Exception {
-        super(
-                rpcService,
-                endpointId,
-                fencingToken,
-                recoveredJobs,
-                dispatcherServices
-        );
+            StreamManagerDispatcherServices dispatcherServices)
+            throws Exception {
+        super(rpcService, endpointId, fencingToken, recoveredJobs, dispatcherServices);
     }
 }

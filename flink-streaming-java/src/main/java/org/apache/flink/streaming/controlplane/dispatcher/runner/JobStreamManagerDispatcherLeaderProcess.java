@@ -18,18 +18,17 @@
 
 package org.apache.flink.streaming.controlplane.dispatcher.runner;
 
-import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherId;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.ThrowingJobGraphWriter;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.streaming.controlplane.dispatcher.StreamManagerDispatcherId;
 
 import java.util.Collections;
 import java.util.UUID;
 
-/**
- * {@link StreamManagerDispatcherLeaderProcess} implementation for the per-job mode.
- */
-public class JobStreamManagerDispatcherLeaderProcess extends AbstractStreamManagerDispatcherLeaderProcess {
+/** {@link StreamManagerDispatcherLeaderProcess} implementation for the per-job mode. */
+public class JobStreamManagerDispatcherLeaderProcess
+        extends AbstractStreamManagerDispatcherLeaderProcess {
 
     private final StreamManagerDispatcherGatewayServiceFactory dispatcherGatewayServiceFactory;
 
@@ -47,10 +46,11 @@ public class JobStreamManagerDispatcherLeaderProcess extends AbstractStreamManag
 
     @Override
     protected void onStart() {
-        final StreamManagerDispatcherGatewayService dispatcherService = dispatcherGatewayServiceFactory.create(
-                StreamManagerDispatcherId.fromUuid(getLeaderSessionId()),
-                Collections.singleton(jobGraph),
-                ThrowingJobGraphWriter.INSTANCE);
+        final StreamManagerDispatcherGatewayService dispatcherService =
+                dispatcherGatewayServiceFactory.create(
+                        StreamManagerDispatcherId.fromUuid(getLeaderSessionId()),
+                        Collections.singleton(jobGraph),
+                        ThrowingJobGraphWriter.INSTANCE);
 
         completeDispatcherSetup(dispatcherService);
     }

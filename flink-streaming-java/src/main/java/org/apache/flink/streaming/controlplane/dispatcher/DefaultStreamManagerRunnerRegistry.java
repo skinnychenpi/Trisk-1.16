@@ -1,6 +1,5 @@
 package org.apache.flink.streaming.controlplane.dispatcher;
 
-
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRunner;

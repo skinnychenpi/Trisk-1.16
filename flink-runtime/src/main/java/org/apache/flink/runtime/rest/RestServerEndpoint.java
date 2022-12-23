@@ -151,6 +151,46 @@ public abstract class RestServerEndpoint implements RestService {
         inboundChannelHandlerFactories.sort(
                 Comparator.comparingInt(InboundChannelHandlerFactory::priority).reversed());
     }
+    // A new created Initializer for Trisk 1.16 adapt to original Trisk 1.10.
+    public RestServerEndpoint(
+            Configuration configuration, RestServerEndpointConfiguration restConfiguration)
+            throws IOException, ConfigurationException {
+        Preconditions.checkNotNull(configuration);
+        Preconditions.checkNotNull(restConfiguration);
+
+        this.configuration = configuration;
+        this.restAddress = restConfiguration.getRestAddress();
+        this.restBindAddress = restConfiguration.getRestBindAddress();
+        this.restBindPortRange = restConfiguration.getRestBindPortRange();
+        this.sslHandlerFactory = restConfiguration.getSslHandlerFactory();
+
+        this.uploadDir = restConfiguration.getUploadDir();
+        createUploadDir(uploadDir, log, true);
+
+        this.maxContentLength = restConfiguration.getMaxContentLength();
+        this.responseHeaders = restConfiguration.getResponseHeaders();
+
+        terminationFuture = new CompletableFuture<>();
+
+        inboundChannelHandlerFactories = new ArrayList<>();
+        ServiceLoader<InboundChannelHandlerFactory> loader =
+                ServiceLoader.load(InboundChannelHandlerFactory.class);
+        final Iterator<InboundChannelHandlerFactory> factories = loader.iterator();
+        while (factories.hasNext()) {
+            try {
+                final InboundChannelHandlerFactory factory = factories.next();
+                if (factory != null) {
+                    inboundChannelHandlerFactories.add(factory);
+                    log.info("Loaded channel inbound factory: {}", factory);
+                }
+            } catch (Throwable e) {
+                log.error("Could not load channel inbound factory.", e);
+                throw e;
+            }
+        }
+        inboundChannelHandlerFactories.sort(
+                Comparator.comparingInt(InboundChannelHandlerFactory::priority).reversed());
+    }
 
     /**
      * This method is called at the beginning of {@link #start()} to setup all handlers that the

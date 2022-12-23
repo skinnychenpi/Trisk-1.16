@@ -59,6 +59,8 @@ import org.apache.flink.runtime.security.token.DelegationTokenManager;
 import org.apache.flink.runtime.security.token.KerberosDelegationTokenManagerFactory;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.runtime.webmonitor.retriever.impl.RpcMetricQueryServiceRetriever;
+import org.apache.flink.streaming.controlplane.entrypoint.streammanager.StreamManagerDispatcherComponent;
+import org.apache.flink.streaming.controlplane.entrypoint.streammanager.StreamManagerDispatcherComponentFactory;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
@@ -125,6 +127,9 @@ public abstract class ClusterControllerEntrypoint implements AutoCloseableAsync,
 
     @GuardedBy("lock")
     private DispatcherResourceManagerComponent clusterComponent;
+
+    @GuardedBy("lock")
+    private StreamManagerDispatcherComponent smComponent;
 
     @GuardedBy("lock")
     private MetricRegistryImpl metricRegistry;
@@ -296,6 +301,42 @@ public abstract class ClusterControllerEntrypoint implements AutoCloseableAsync,
                             this);
 
             clusterComponent
+                    .getShutDownFuture()
+                    .whenComplete(
+                            (ApplicationStatus applicationStatus, Throwable throwable) -> {
+                                if (throwable != null) {
+                                    shutDownAsync(
+                                            ApplicationStatus.UNKNOWN,
+                                            ShutdownBehaviour.GRACEFUL_SHUTDOWN,
+                                            ExceptionUtils.stringifyException(throwable),
+                                            false);
+                                } else {
+                                    // This is the general shutdown path. If a separate more
+                                    // specific shutdown was
+                                    // already triggered, this will do nothing
+                                    shutDownAsync(
+                                            applicationStatus,
+                                            ShutdownBehaviour.GRACEFUL_SHUTDOWN,
+                                            null,
+                                            true);
+                                }
+                            });
+
+            final StreamManagerDispatcherComponentFactory smDispatcherComponentFactory =
+                    createStreamManagerDispatcherComponentFactory(configuration);
+
+            smComponent =
+                    smDispatcherComponentFactory.create(
+                            configuration,
+                            ioExecutor,
+                            commonRpcService,
+                            haServices,
+                            blobServer,
+                            heartbeatServices,
+                            this,
+                            executionGraphInfoStore);
+
+            smComponent
                     .getShutDownFuture()
                     .whenComplete(
                             (ApplicationStatus applicationStatus, Throwable throwable) -> {
@@ -666,6 +707,10 @@ public abstract class ClusterControllerEntrypoint implements AutoCloseableAsync,
 
     protected abstract DispatcherResourceManagerComponentFactory
             createDispatcherResourceManagerComponentFactory(Configuration configuration)
+                    throws IOException;
+
+    protected abstract StreamManagerDispatcherComponentFactory
+            createStreamManagerDispatcherComponentFactory(Configuration configuration)
                     throws IOException;
 
     protected abstract ExecutionGraphInfoStore createSerializableExecutionGraphStore(

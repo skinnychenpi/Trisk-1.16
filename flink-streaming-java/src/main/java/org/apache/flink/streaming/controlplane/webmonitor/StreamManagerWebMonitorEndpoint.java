@@ -6,6 +6,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.leaderelection.LeaderContender;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.rest.RestServerEndpoint;
+import org.apache.flink.runtime.rest.RestServerEndpointConfiguration;
 import org.apache.flink.runtime.rest.handler.RestHandlerConfiguration;
 import org.apache.flink.runtime.rest.handler.RestHandlerSpecification;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
@@ -62,6 +63,7 @@ public class StreamManagerWebMonitorEndpoint<T extends StreamManagerRestfulGatew
     @Nullable private ScheduledFuture<?> executionGraphCleanupTask;
 
     public StreamManagerWebMonitorEndpoint(
+            RestServerEndpointConfiguration endpointConfiguration,
             GatewayRetriever<? extends T> leaderRetriever,
             Configuration clusterConfiguration,
             RestHandlerConfiguration restConfiguration,
@@ -70,7 +72,7 @@ public class StreamManagerWebMonitorEndpoint<T extends StreamManagerRestfulGatew
             ExecutionGraphCache executionGraphCache,
             FatalErrorHandler fatalErrorHandler)
             throws IOException, ConfigurationException {
-        super(clusterConfiguration);
+        super(clusterConfiguration, endpointConfiguration);
         this.leaderRetriever = Preconditions.checkNotNull(leaderRetriever);
         this.clusterConfiguration = Preconditions.checkNotNull(clusterConfiguration);
         this.restConfiguration = Preconditions.checkNotNull(restConfiguration);

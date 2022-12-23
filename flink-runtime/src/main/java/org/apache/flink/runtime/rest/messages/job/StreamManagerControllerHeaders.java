@@ -22,10 +22,12 @@ import org.apache.flink.runtime.rest.FileUploadHandler;
 import org.apache.flink.runtime.rest.HttpMethodWrapper;
 import org.apache.flink.runtime.rest.messages.*;
 import org.apache.flink.runtime.rest.versioning.RestAPIVersion;
+import org.apache.flink.runtime.rest.versioning.RuntimeRestAPIVersion;
 
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 
 import java.util.Collection;
+import java.util.Collections;
 
 /** These headers define the protocol for submitting a job to a flink cluster. */
 public class StreamManagerControllerHeaders
@@ -56,7 +58,7 @@ public class StreamManagerControllerHeaders
     // This is a dummy method created compared with Trisk on Flink 1.10.
     @Override
     public Collection<? extends RestAPIVersion<?>> getSupportedAPIVersions() {
-        return null;
+        return Collections.singleton(RuntimeRestAPIVersion.V1);
     }
 
     @Override

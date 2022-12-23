@@ -60,6 +60,7 @@ public class StreamManagerDispatcherRestEndpoint
             throws IOException, ConfigurationException {
 
         super(
+                endpointConfiguration,
                 leaderRetriever,
                 clusterConfiguration,
                 restConfiguration,

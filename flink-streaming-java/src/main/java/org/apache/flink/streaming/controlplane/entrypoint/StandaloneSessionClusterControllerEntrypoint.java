@@ -10,6 +10,7 @@ import org.apache.flink.runtime.resourcemanager.StandaloneResourceManagerFactory
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.JvmShutdownSafeguard;
 import org.apache.flink.runtime.util.SignalHandler;
+import org.apache.flink.streaming.controlplane.entrypoint.streammanager.DefaultStreamManagerDispatcherComponentFactory;
 
 /** Entry point for the standalone session controller cluster. */
 public class StandaloneSessionClusterControllerEntrypoint
@@ -24,6 +25,12 @@ public class StandaloneSessionClusterControllerEntrypoint
             createDispatcherResourceManagerComponentFactory(Configuration configuration) {
         return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
                 StandaloneResourceManagerFactory.getInstance());
+    }
+
+    @Override
+    protected DefaultStreamManagerDispatcherComponentFactory
+            createStreamManagerDispatcherComponentFactory(Configuration configuration) {
+        return DefaultStreamManagerDispatcherComponentFactory.createSessionComponentFactory();
     }
 
     public static void main(String[] args) {

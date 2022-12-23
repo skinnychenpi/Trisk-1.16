@@ -48,8 +48,6 @@ import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
 import org.apache.flink.runtime.security.contexts.SecurityContext;
-import org.apache.flink.runtime.security.token.DelegationTokenManager;
-import org.apache.flink.runtime.security.token.KerberosDelegationTokenManagerFactory;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
@@ -132,9 +130,6 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
 
     @GuardedBy("lock")
     private HeartbeatServices heartbeatServices;
-
-    @GuardedBy("lock")
-    private DelegationTokenManager delegationTokenManager;
 
     @GuardedBy("lock")
     private RpcService commonRpcService;
@@ -263,7 +258,7 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
             throws Exception {
         synchronized (lock) {
             initializeServices(configuration, pluginManager);
-
+            System.out.println("++++++ Service is initialized!!");
             // write host information into configuration
             configuration.setString(StreamManagerOptions.ADDRESS, commonRpcService.getAddress());
             configuration.setInteger(StreamManagerOptions.PORT, commonRpcService.getPort());
@@ -329,11 +324,11 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
                     getClass().getSimpleName(),
                     resourceId);
 
-            //            workingDirectory =
-            //                    ClusterEntrypointUtils.createJobManagerWorkingDirectory(
-            //                            configuration, resourceId);
-            //
-            //            LOG.info("Using working directory: {}.", workingDirectory);
+            workingDirectory =
+                    ClusterEntrypointUtils.createJobManagerWorkingDirectory(
+                            configuration, resourceId);
+
+            LOG.info("Using working directory: {}.", workingDirectory);
 
             rpcSystem = RpcSystem.load(configuration);
 
@@ -365,12 +360,6 @@ public abstract class StreamManagerEntrypoint implements AutoCloseableAsync, Fat
             blobServer.start();
             configuration.setString(BlobServerOptions.PORT, String.valueOf(blobServer.getPort()));
             heartbeatServices = createHeartbeatServices(configuration);
-            delegationTokenManager =
-                    KerberosDelegationTokenManagerFactory.create(
-                            getClass().getClassLoader(),
-                            configuration,
-                            commonRpcService.getScheduledExecutor(),
-                            ioExecutor);
             //            metricRegistry = createMetricRegistry(configuration, pluginManager,
             // rpcSystem);
 

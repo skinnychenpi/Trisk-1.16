@@ -18,7 +18,19 @@
 
 package org.apache.flink.streaming.controlplane.streammanager.abstraction;
 
+import org.apache.flink.api.common.functions.Function;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.clusterframework.types.SlotID;
+import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
+import org.apache.flink.runtime.controlplane.abstraction.OperatorDescriptor;
+import org.apache.flink.runtime.controlplane.abstraction.TaskResourceDescriptor;
+import org.apache.flink.runtime.controlplane.abstraction.resource.AbstractSlot;
+import org.apache.flink.streaming.controlplane.udm.ControlPolicy;
+
+import javax.annotation.Nullable;
+
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The state of stream manager mainly contains the following information: 1. topology: the topology
@@ -38,124 +50,123 @@ import java.util.*;
  * each task and task location.
  */
 public class TriskWithLock {
-    //	implements TriskWithLock {
-    //
-    //    private final static int COMMITTED = 1;
-    //    private final static int STAGED = 0;
-    //
-    //    private final AtomicInteger stateOfUpdate = new AtomicInteger(COMMITTED);
-    //    private ControlPolicy currentWaitingController;
-    //
-    //    private final ExecutionPlan executionPlan;
-    //
-    //    public TriskWithLock(ExecutionPlan executionPlan) {
-    //        this.executionPlan = executionPlan;
-    //    }
-    //
-    //    private TriskWithLock(ExecutionPlan executionPlan, AtomicInteger stateOfUpdate,
-    // ControlPolicy currentWaitingController) {
-    //        this.executionPlan = executionPlan;
-    //        this.stateOfUpdate.set(stateOfUpdate.get());
-    //        this.currentWaitingController = currentWaitingController;
-    //    }
-    //
-    //    public void setStateUpdatingFlag(ControlPolicy waitingController) throws Exception {
-    //        // some strategy needed here to ensure there is only one update at one time
-    //        if (!stateOfUpdate.compareAndSet(COMMITTED, STAGED)) {
-    //            throw new Exception("There is another state update not finished, the waiting
-    // controller is:" + currentWaitingController);
-    //        }
-    //        // the caller may want to wait the completion of this update.
-    //        currentWaitingController = waitingController;
-    //    }
-    //
-    //    public void notifyUpdateFinished(Throwable throwable) throws Exception {
-    //        if (stateOfUpdate.compareAndSet(STAGED, COMMITTED)) {
-    //            if (currentWaitingController != null) {
-    //                currentWaitingController.onChangeCompleted(throwable);
-    //            }
-    //            return;
-    //        }
-    //        throw new Exception("There is not any state updating");
-    //    }
-    //
-    //    public ExecutionPlan getExecutionPlan() {
-    //        return executionPlan;
-    //    }
-    //
-    //    // delegate methods
-    //    public Map<String, List<AbstractSlot>> getResourceDistribution() {
-    //        return executionPlan.getSlotMap();
-    //    }
-    //
-    //    public TaskResourceDescriptor getTask(Integer operatorID, int taskId) {
-    //        return executionPlan.getTaskResource(operatorID, taskId);
-    //    }
-    //
-    //    public Function getUserFunction(Integer operatorID) {
-    //        return executionPlan.getUserFunction(operatorID);
-    //    }
-    //
-    //    public Map<Integer, List<Integer>> getKeyDistribution(Integer operatorID){
-    //        return executionPlan.getKeyStateAllocation(operatorID);
-    //    }
-    //
-    //    public Map<Integer, Map<Integer, List<Integer>>> getKeyMapping(Integer operatorID) {
-    //        return executionPlan.getKeyMapping(operatorID);
-    //    }
-    //
-    //    public int getParallelism(Integer operatorID) {
-    //        return executionPlan.getParallelism(operatorID);
-    //    }
-    //
-    //    public Iterator<OperatorDescriptor> getAllOperator() {
-    //        return executionPlan.getAllOperator();
-    //    }
-    //
-    //    public OperatorDescriptor getOperatorByID(Integer operatorID) {
-    //        return executionPlan.getOperatorByID(operatorID);
-    //    }
-    //
-    //    public ExecutionPlan assignWorkload(Integer operatorID, Map<Integer, List<Integer>>
-    // distribution) {
-    //        return executionPlan.assignWorkload(operatorID, distribution);
-    //    }
-    //
-    //    public ExecutionPlan assignExecutionLogic(Integer operatorID, Object function) {
-    //        return executionPlan.assignExecutionLogic(operatorID, function);
-    //    }
-    //
-    //    public ExecutionPlan assignResources(Integer operatorID, @Nullable Map<Integer,
-    // Tuple2<Integer, String>> deployment) {
-    //        return executionPlan.assignResources(operatorID, deployment);
-    //    }
-    //
-    //    public ExecutionPlan assignResourcesV2(Integer operatorID, @Nullable Map<Integer, String>
-    // deployment) {
-    //        return executionPlan.assignResourcesV2(operatorID, deployment);
-    //    }
-    //
-    //    //	@Override
-    //    public ExecutionPlan update(java.util.function.Function<ExecutionPlan, ExecutionPlan>
-    // applier) {
-    //        return executionPlan.update(applier);
-    //    }
-    //
-    //    public Map<Integer, List<SlotID>> getSlotAllocation() {
-    //        return executionPlan.getSlotAllocation();
-    //    }
-    //
-    //    public Map<String, Map<Integer, List<Integer>>> getTransformations() {
-    //        return executionPlan.getTransformations();
-    //    }
-    //
-    //    public void clearTransformations() {
-    //        executionPlan.clearTransformations();
-    //    }
-    //
-    //    public TriskWithLock copy() {
-    //        return new TriskWithLock(executionPlan.copy(), stateOfUpdate,
-    // currentWaitingController);
-    //    }
 
+    private static final int COMMITTED = 1;
+    private static final int STAGED = 0;
+
+    private final AtomicInteger stateOfUpdate = new AtomicInteger(COMMITTED);
+    private ControlPolicy currentWaitingController;
+
+    private final ExecutionPlan executionPlan;
+
+    public TriskWithLock(ExecutionPlan executionPlan) {
+        this.executionPlan = executionPlan;
+    }
+
+    private TriskWithLock(
+            ExecutionPlan executionPlan,
+            AtomicInteger stateOfUpdate,
+            ControlPolicy currentWaitingController) {
+        this.executionPlan = executionPlan;
+        this.stateOfUpdate.set(stateOfUpdate.get());
+        this.currentWaitingController = currentWaitingController;
+    }
+
+    public void setStateUpdatingFlag(ControlPolicy waitingController) throws Exception {
+        // some strategy needed here to ensure there is only one update at one time
+        if (!stateOfUpdate.compareAndSet(COMMITTED, STAGED)) {
+            throw new Exception(
+                    "There is another state update not finished, the waiting controller is:"
+                            + currentWaitingController);
+        }
+        // the caller may want to wait the completion of this update.
+        currentWaitingController = waitingController;
+    }
+
+    public void notifyUpdateFinished(Throwable throwable) throws Exception {
+        if (stateOfUpdate.compareAndSet(STAGED, COMMITTED)) {
+            if (currentWaitingController != null) {
+                currentWaitingController.onChangeCompleted(throwable);
+            }
+            return;
+        }
+        throw new Exception("There is not any state updating");
+    }
+
+    public ExecutionPlan getExecutionPlan() {
+        return executionPlan;
+    }
+
+    // delegate methods
+    public Map<String, List<AbstractSlot>> getResourceDistribution() {
+        return executionPlan.getSlotMap();
+    }
+
+    public TaskResourceDescriptor getTask(Integer operatorID, int taskId) {
+        return executionPlan.getTaskResource(operatorID, taskId);
+    }
+
+    public Function getUserFunction(Integer operatorID) {
+        return executionPlan.getUserFunction(operatorID);
+    }
+
+    public Map<Integer, List<Integer>> getKeyDistribution(Integer operatorID) {
+        return executionPlan.getKeyStateAllocation(operatorID);
+    }
+
+    public Map<Integer, Map<Integer, List<Integer>>> getKeyMapping(Integer operatorID) {
+        return executionPlan.getKeyMapping(operatorID);
+    }
+
+    public int getParallelism(Integer operatorID) {
+        return executionPlan.getParallelism(operatorID);
+    }
+
+    public Iterator<OperatorDescriptor> getAllOperator() {
+        return executionPlan.getAllOperator();
+    }
+
+    public OperatorDescriptor getOperatorByID(Integer operatorID) {
+        return executionPlan.getOperatorByID(operatorID);
+    }
+
+    public ExecutionPlan assignWorkload(
+            Integer operatorID, Map<Integer, List<Integer>> distribution) {
+        return executionPlan.assignWorkload(operatorID, distribution);
+    }
+
+    public ExecutionPlan assignExecutionLogic(Integer operatorID, Object function) {
+        return executionPlan.assignExecutionLogic(operatorID, function);
+    }
+
+    public ExecutionPlan assignResources(
+            Integer operatorID, @Nullable Map<Integer, Tuple2<Integer, String>> deployment) {
+        return executionPlan.assignResources(operatorID, deployment);
+    }
+
+    public ExecutionPlan assignResourcesV2(
+            Integer operatorID, @Nullable Map<Integer, String> deployment) {
+        return executionPlan.assignResourcesV2(operatorID, deployment);
+    }
+
+    //	@Override
+    public ExecutionPlan update(java.util.function.Function<ExecutionPlan, ExecutionPlan> applier) {
+        return executionPlan.update(applier);
+    }
+
+    public Map<Integer, List<SlotID>> getSlotAllocation() {
+        return executionPlan.getSlotAllocation();
+    }
+
+    public Map<String, Map<Integer, List<Integer>>> getTransformations() {
+        return executionPlan.getTransformations();
+    }
+
+    public void clearTransformations() {
+        executionPlan.clearTransformations();
+    }
+
+    public TriskWithLock copy() {
+        return new TriskWithLock(executionPlan.copy(), stateOfUpdate, currentWaitingController);
+    }
 }

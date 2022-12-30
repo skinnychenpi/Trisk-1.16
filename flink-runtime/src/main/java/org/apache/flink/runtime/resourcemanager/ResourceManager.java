@@ -947,7 +947,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
         jobManagerHeartbeatManager.monitorTarget(
                 jobManagerResourceId, new JobMasterHeartbeatSender(jobMasterGateway));
 
-        return new JobMasterRegistrationSuccess(getFencingToken(), resourceId);
+        return new JobMasterRegistrationSuccess<>(getFencingToken(), resourceId);
     }
 
     /**

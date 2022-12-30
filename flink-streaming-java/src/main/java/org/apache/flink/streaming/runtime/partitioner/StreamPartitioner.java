@@ -21,6 +21,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.io.network.api.writer.ChannelSelector;
 import org.apache.flink.runtime.io.network.api.writer.SubtaskStateMapper;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
 import java.io.Serializable;
@@ -33,6 +34,8 @@ public abstract class StreamPartitioner<T>
     private static final long serialVersionUID = 1L;
 
     protected int numberOfChannels;
+
+    protected MetricsManager metricsManager;
 
     @Override
     public void setup(int numberOfChannels) {
@@ -78,4 +81,9 @@ public abstract class StreamPartitioner<T>
     public abstract SubtaskStateMapper getDownstreamSubtaskStateMapper();
 
     public abstract boolean isPointwise();
+
+    @Override
+    public void setMetricsManager(MetricsManager metricsManager) {
+        this.metricsManager = metricsManager;
+    }
 }

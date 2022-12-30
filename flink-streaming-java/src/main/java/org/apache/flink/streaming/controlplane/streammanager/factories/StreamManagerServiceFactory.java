@@ -21,9 +21,11 @@ package org.apache.flink.streaming.controlplane.streammanager.factories;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerService;
 
+import java.util.UUID;
+
 /** Factory for a {@link StreamManagerService}. */
 public interface StreamManagerServiceFactory {
 
-    StreamManagerService createStreamManagerService(JobGraph jobGraph, ClassLoader userCodeLoader)
-            throws Exception;
+    StreamManagerService createStreamManagerService(
+            JobGraph jobGraph, ClassLoader userCodeLoader, UUID leaderSessionID) throws Exception;
 }

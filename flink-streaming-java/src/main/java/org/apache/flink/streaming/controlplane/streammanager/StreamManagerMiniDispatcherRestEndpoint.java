@@ -49,6 +49,7 @@ public class StreamManagerMiniDispatcherRestEndpoint
             FatalErrorHandler fatalErrorHandler)
             throws IOException, ConfigurationException {
         super(
+                endpointConfiguration,
                 leaderRetriever,
                 clusterConfiguration,
                 restConfiguration,

@@ -67,6 +67,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
@@ -516,6 +517,11 @@ public class AkkaRpcService implements RpcService {
     public <T> CompletableFuture<T> execute(Callable<T> callable) {
         return CompletableFuture.supplyAsync(
                 FunctionUtils.uncheckedSupplier(callable::call), getScheduledExecutor());
+    }
+
+    @Override
+    public Executor getExecutor() {
+        return actorSystem.dispatcher();
     }
 
     // ---------------------------------------------------------------------------------------

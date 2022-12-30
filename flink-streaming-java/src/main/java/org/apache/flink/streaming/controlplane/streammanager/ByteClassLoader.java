@@ -18,6 +18,8 @@
 
 package org.apache.flink.streaming.controlplane.streammanager;
 
+import org.apache.flink.streaming.controlplane.udm.AbstractController;
+
 import javax.annotation.Nullable;
 import javax.tools.*;
 
@@ -32,9 +34,6 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
 // Define Custom ClassLoader
-// -------------------------------------------暂时屏蔽---------------------------------------
-// import org.apache.flink.streaming.controlplane.udm.AbstractController;
-// -------------------------------------------暂时屏蔽---------------------------------------
 public class ByteClassLoader extends ClassLoader {
 
     private final HashMap<String, byte[]> byteDataMap = new HashMap<>();
@@ -81,18 +80,15 @@ public class ByteClassLoader extends ClassLoader {
 
         return defineClass(className, extractedBytes, 0, extractedBytes.length);
     }
-    // -------------------------------------------暂时屏蔽---------------------------------------
-    //    public Class<? extends AbstractController> loadClassFromByteArray(byte[] byteData, String
-    // className)
-    //            throws ClassNotFoundException {
-    //        //Load bytes into hashmap
-    //        if (!loadDataInBytes(byteData, className)) {
-    //            throw new ClassNotFoundException("duplicate class definition for class:" +
-    // className);
-    //        }
-    //        return (Class<? extends AbstractController>) loadClass(className, false);
-    //    }
-    // -------------------------------------------暂时屏蔽---------------------------------------
+
+    public Class<? extends AbstractController> loadClassFromByteArray(
+            byte[] byteData, String className) throws ClassNotFoundException {
+        // Load bytes into hashmap
+        if (!loadDataInBytes(byteData, className)) {
+            throw new ClassNotFoundException("duplicate class definition for class:" + className);
+        }
+        return (Class<? extends AbstractController>) loadClass(className, false);
+    }
 
     public static ByteClassLoader create() {
         return new ByteClassLoader(ByteClassLoader.class.getClassLoader());

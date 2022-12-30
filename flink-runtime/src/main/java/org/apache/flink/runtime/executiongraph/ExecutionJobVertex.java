@@ -121,6 +121,15 @@ public class ExecutionJobVertex
 
     @Nullable private InputSplitAssigner splitAssigner;
 
+    // ------------------------ New fields added for Trisk 1.16 --------------------------------
+    //    private volatile int oldParallelism;
+    //
+    //    private final Map<IntermediateDataSetID, Integer> iresConsumerIndex;
+    //
+    //    private int parallelism;
+
+    // TODO: 把上面这些field加入到parallelismInfo里面比较合理。
+    // ------------------------ New fields added for Trisk 1.16 --------------------------------
     @VisibleForTesting
     public ExecutionJobVertex(
             InternalExecutionGraphAccessor graph,
@@ -490,6 +499,176 @@ public class ExecutionJobVertex
             EdgeManagerBuildUtil.connectVertexToResult(this, ires, edge.getDistributionPattern());
         }
     }
+
+    // Below is code for Trisk Rescale!!!!!
+
+    //    public List<ExecutionVertex> scaleOut(
+    //            Time timeout,
+    //            long initialGlobalModVersion,
+    //            long createTimestamp,
+    //            @Nullable List<Integer> createdTaskIds) {
+    //
+    //        cleanBeforeRescale();
+    //
+    //        // TODO scaling: check sanity for parallelism
+    //
+    //        oldParallelism = parallelism;
+    //        int numNewTaskVertices = getJobVertex().getParallelism();
+    //        if (createdTaskIds != null && parallelism == numNewTaskVertices) {
+    //            numNewTaskVertices = numNewTaskVertices + createdTaskIds.size();
+    //        }
+    //        this.parallelism = numNewTaskVertices;
+    //
+    //        for (IntermediateResult producedDataSet : producedDataSets) {
+    //            producedDataSet.updateNumParallelProducers(numNewTaskVertices, new
+    // ArrayList<>(0));
+    //            producedDataSet.resetConsumers();
+    //        }
+    //
+    //        Configuration jobConfiguration = graph.getJobConfiguration();
+    //        int maxPriorAttemptsHistoryLength = jobConfiguration != null ?
+    //                jobConfiguration.getInteger(JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE) :
+    //                JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE.defaultValue();
+    //
+    //        ExecutionVertex[] newTaskVertices = new ExecutionVertex[numNewTaskVertices];
+    //        List<ExecutionVertex> createdTaskVertices = new ArrayList<>(numNewTaskVertices -
+    // oldParallelism);
+    //        for (int i = 0; i < numNewTaskVertices; i++) {
+    //            if (i < oldParallelism) {
+    //                newTaskVertices[i] = taskVertices[i];
+    //                newTaskVertices[i].updateTaskNameWithSubtaskIndex();
+    //            } else {
+    //                ExecutionVertex taskVertex = new ExecutionVertex(
+    //                        this,
+    //                        i,
+    //                        producedDataSets,
+    //                        timeout,
+    //                        initialGlobalModVersion,
+    //                        createTimestamp,
+    //                        maxPriorAttemptsHistoryLength);
+    //
+    //                for (int num = 0; num < inputs.size(); num++) {
+    //                    JobEdge edge = jobVertex.getInputs().get(num);
+    //
+    //                    IntermediateResult ires = inputs.get(num);
+    //                    int consumerIndex = iresConsumerIndex.get(ires.getId());
+    //
+    //                    taskVertex.connectSource(num, ires, edge, consumerIndex);
+    //                }
+    //
+    //                newTaskVertices[i] = taskVertex;
+    //                createdTaskVertices.add(taskVertex);
+    //            }
+    //        }
+    //        this.taskVertices = newTaskVertices;
+    //
+    //        // sanity check for the double referencing between intermediate result partitions and
+    // execution vertices
+    //        for (IntermediateResult ir : this.producedDataSets) {
+    //            if (ir.getNumberOfAssignedPartitions() != parallelism) {
+    //                throw new RuntimeException("The intermediate result's partitions were not
+    // correctly assigned when doing rescaling.");
+    //            }
+    //        }
+    //        // TODO scaling: whether need to do something for InputSplitSource?
+    //
+    //        return createdTaskVertices;
+    //    }
+    //
+    //    public List<ExecutionVertex> scaleIn(
+    //            List<Integer> removedTaskIds) {
+    //
+    //        cleanBeforeRescale();
+    //
+    //        // TODO scaling: check sanity for parallelism
+    //        oldParallelism = parallelism;
+    //        int numNewTaskVertices = getJobVertex().getParallelism();
+    //        this.parallelism = numNewTaskVertices;
+    //
+    //        for (IntermediateResult producedDataSet : producedDataSets) {
+    //            producedDataSet.updateNumParallelProducers(numNewTaskVertices, removedTaskIds);
+    //            producedDataSet.resetConsumers();
+    //        }
+    //
+    //        ExecutionVertex[] newTaskVertices = new ExecutionVertex[numNewTaskVertices];
+    //        // suppose only one task will be removed
+    //        List<ExecutionVertex> removedTaskVertices = new ArrayList<>(oldParallelism -
+    // numNewTaskVertices);
+    //        int j = 0;
+    //        for (int i = 0; i < oldParallelism; i++) {
+    //            if (!removedTaskIds.contains(i)) {
+    //                newTaskVertices[j] = taskVertices[i];
+    //                // update subtask index to from i to j
+    //                newTaskVertices[j].updateTaskIndex(j);
+    //                newTaskVertices[j].updateTaskNameWithSubtaskIndex();
+    //                j++;
+    //            } else {
+    //                // this task should be canceled when all execution has completed
+    ////				// cancel and release all resources
+    ////				taskVertices[i].cancel();
+    //                // update ExecutionEdge connected to upstream
+    //
+    ////				taskVertices[i].deregisterExecution();
+    //                removedTaskVertices.add(taskVertices[i]);
+    //            }
+    //        }
+    //        this.taskVertices = newTaskVertices;
+    //
+    //        // sanity check for the double referencing between intermediate result partitions and
+    // execution vertices
+    //        for (IntermediateResult ir : this.producedDataSets) {
+    //            if (ir.getNumberOfAssignedPartitions() != parallelism) {
+    //                throw new RuntimeException("The intermediate result's partitions were not
+    // correctly assigned when doing rescaling.");
+    //            }
+    //        }
+    //
+    //        // TODO scaling: whether need to do something for InputSplitSource?
+    //
+    //        return removedTaskVertices;
+    //    }
+    //
+    //    public void syncOldConfigInfo() {
+    //        this.oldParallelism = this.parallelism;
+    //        for (ExecutionVertex vertex: taskVertices) {
+    //            vertex.syncOldParallelSubtaskIndex();
+    //        }
+    //    }
+    //
+    //    public void resetProducedDataSets() {
+    //        for (IntermediateResult producedDataSet : producedDataSets) {
+    //            producedDataSet.resetConsumers();
+    //        }
+    //    }
+    //
+    //    public void reconnectWithUpstream(IntermediateResult[] upstreamProducedDataSets) {
+    //        List<JobEdge> inputs = jobVertex.getInputs();//此时inputs的size为1，也就是只有一个input
+    // edge，也很好理解，因为只有一个上游的job（也就是target，因为this是target的下游）
+    //
+    //        for (IntermediateResult ires : upstreamProducedDataSets) {
+    // //这个时候upstreamProducedDataset的size是1，但是这个元素的partition已经是10了
+    //            for (int num = 0; num < inputs.size(); num++) {
+    //                JobEdge edge = inputs.get(num);
+    //
+    //                if (edge.getSourceId().equals(ires.getId())) {
+    //                    int consumerIndex = ires.registerConsumer();
+    //                    iresConsumerIndex.put(ires.getId(), consumerIndex);
+    //
+    //                    for (int i = 0; i < parallelism; i++) {
+    // //此时parallelism是1，因为this对象是target的下游节点
+    //                        ExecutionVertex ev = taskVertices[i];
+    //                        ev.connectSource(num, ires, edge, consumerIndex);
+    // //利用jobEdges的信息把ExecutionEdges的信息更新。这里会把target下游的节点（也就是this）的input edge更新为10
+    //                    }
+    //                }
+    //            }
+    //        }
+    //    }
+    //
+    //    public void cleanBeforeRescale() {
+    //        // clear this field to generating updated taskInformation later
+    //        this.taskInformationOrBlobKey = null;
+    //    }
 
     // ---------------------------------------------------------------------------------------------
     //  Actions

@@ -143,6 +143,11 @@ public class SingleLogicalSlot implements LogicalSlot, PhysicalSlot.Payload {
         return slotRequestId;
     }
 
+    @Override
+    public int getPhysicalSlotNumber() {
+        return slotContext.getPhysicalSlotNumber();
+    }
+
     public static SingleLogicalSlot allocateFromPhysicalSlot(
             final SlotRequestId slotRequestId,
             final PhysicalSlot physicalSlot,

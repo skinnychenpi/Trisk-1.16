@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 
 /**
  * The {@link ChannelSelector} determines to which logical channels a record should be written to.
@@ -52,4 +53,6 @@ public interface ChannelSelector<T extends IOReadableWritable> {
      * @return true if the selector is for broadcast mode.
      */
     boolean isBroadcast();
+
+    void setMetricsManager(MetricsManager metricsManager);
 }

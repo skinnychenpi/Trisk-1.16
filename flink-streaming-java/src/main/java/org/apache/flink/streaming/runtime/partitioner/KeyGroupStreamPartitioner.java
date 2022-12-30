@@ -21,10 +21,15 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.runtime.io.network.api.writer.SubtaskStateMapper;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.Preconditions;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -49,6 +54,10 @@ public class KeyGroupStreamPartitioner<T, K> extends StreamPartitioner<T>
 
     public int getMaxParallelism() {
         return maxParallelism;
+    }
+
+    public KeySelector<T, K> getKeySelector() {
+        return keySelector;
     }
 
     @Override
@@ -108,5 +117,24 @@ public class KeyGroupStreamPartitioner<T, K> extends StreamPartitioner<T>
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), keySelector, maxParallelism);
+    }
+
+    public Map<Integer, List<Integer>> getKeyMappingInfo(int parallelism) {
+        Map<Integer, List<Integer>> keyGroupAllocation = new HashMap<>();
+        for (int channelIndex = 0; channelIndex < parallelism; channelIndex++) {
+            KeyGroupRange keyGroupRange =
+                    KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
+                            maxParallelism, parallelism, channelIndex);
+            int keyGroupId = keyGroupRange.getStartKeyGroup();
+            int end = keyGroupRange.getEndKeyGroup();
+            List<Integer> thisChannelKeyInfo =
+                    new ArrayList<>(keyGroupRange.getNumberOfKeyGroups());
+            while (keyGroupId <= end) {
+                thisChannelKeyInfo.add(keyGroupId);
+                keyGroupId++;
+            }
+            keyGroupAllocation.put(channelIndex, thisChannelKeyInfo);
+        }
+        return keyGroupAllocation;
     }
 }

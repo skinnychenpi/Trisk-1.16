@@ -1145,7 +1145,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
         resourceManagerConnection.start();
     }
 
-    private void establishResourceManagerConnection(final JobMasterRegistrationSuccess success) {
+    private void establishResourceManagerConnection(
+            final JobMasterRegistrationSuccess<ResourceManagerId> success) {
         final ResourceManagerId resourceManagerId = success.getResourceManagerId();
 
         // verify the response with current connection
@@ -1291,7 +1292,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
             extends RegisteredRpcConnection<
                     ResourceManagerId,
                     ResourceManagerGateway,
-                    JobMasterRegistrationSuccess,
+                    JobMasterRegistrationSuccess<ResourceManagerId>,
                     RegistrationResponse.Rejection> {
         private final JobID jobID;
 
@@ -1321,13 +1322,13 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
         protected RetryingRegistration<
                         ResourceManagerId,
                         ResourceManagerGateway,
-                        JobMasterRegistrationSuccess,
+                        JobMasterRegistrationSuccess<ResourceManagerId>,
                         RegistrationResponse.Rejection>
                 generateRegistration() {
             return new RetryingRegistration<
                     ResourceManagerId,
                     ResourceManagerGateway,
-                    JobMasterRegistrationSuccess,
+                    JobMasterRegistrationSuccess<ResourceManagerId>,
                     RegistrationResponse.Rejection>(
                     log,
                     getRpcService(),
@@ -1355,7 +1356,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
         }
 
         @Override
-        protected void onRegistrationSuccess(final JobMasterRegistrationSuccess success) {
+        protected void onRegistrationSuccess(
+                final JobMasterRegistrationSuccess<ResourceManagerId> success) {
             runAsync(
                     () -> {
                         // filter out outdated connections

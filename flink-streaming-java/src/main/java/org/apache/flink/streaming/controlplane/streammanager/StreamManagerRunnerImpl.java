@@ -41,6 +41,7 @@ import org.apache.flink.util.function.FunctionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -74,14 +75,11 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
     private final LibraryCacheManager libraryCacheManager;
 
     private final Executor executor;
-    // -------------------------------------------暂时屏蔽---------------------------------------
-    //    private final StreamManagerService streamManagerService;
-    private final StreamManagerService streamManagerService = null;
-    // -------------------------------------------暂时屏蔽---------------------------------------
+
+    private StreamManagerService streamManagerService;
+
     private final FatalErrorHandler fatalErrorHandler;
 
-    // Flink 1.10
-    //    private final CompletableFuture<ArchivedExecutionGraph> resultFuture;
     private final CompletableFuture<JobManagerRunnerResult> resultFuture;
 
     private final CompletableFuture<Void> terminationFuture;
@@ -92,6 +90,13 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
     private volatile boolean shutdown;
 
     private volatile CompletableFuture<StreamManagerGateway> leaderGatewayFuture;
+
+    private final LibraryCacheManager.ClassLoaderLease classLoaderLease;
+
+    // TODO: this is only code for DEMO1 !! See line 174
+    private final StreamManagerServiceFactory streamManagerServiceFactory;
+
+    private final ClassLoader userCodeClassLoader;
 
     // ------------------------------------------------------------------------
 
@@ -123,8 +128,8 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
             this.libraryCacheManager = checkNotNull(libraryCacheManager);
 
             checkArgument(jobGraph.getNumberOfVertices() > 0, "The given job is empty");
-            // -------------------------------------------暂时屏蔽---------------------------------------
-            //            // libraries and class loader first
+
+            // Trisk 1.10 code
             //            try {
             //                libraryCacheManager.registerJob(
             //                        jobGraph.getJobID(), jobGraph.getUserJarBlobKeys(),
@@ -140,17 +145,43 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
             //                throw new Exception("The user code class loader could not be
             // initialized.");
             //            }
-            // -------------------------------------------暂时屏蔽---------------------------------------
-            // high availability services next
-            this.leaderElectionService =
-                    haServices.getJobManagerLeaderElectionService(jobGraph.getJobID());
 
-            this.leaderGatewayFuture = new CompletableFuture<>();
-            // -------------------------------------------暂时屏蔽---------------------------------------
-            //            // now start the StreamManager
-            //            this.streamManagerService =
-            // streamManagerFactory.createStreamManagerService(jobGraph, userCodeLoader);
-            // -------------------------------------------暂时屏蔽---------------------------------------
+            // Trisk 1.16 code
+
+            this.streamManagerServiceFactory = streamManagerFactory;
+
+            try {
+                // libraries and class loader first
+                this.classLoaderLease =
+                        libraryCacheManager.registerClassLoaderLease(jobGraph.getJobID());
+
+                final ClassLoader userCodeClassLoader =
+                        classLoaderLease
+                                .getOrResolveClassLoader(
+                                        jobGraph.getUserJarBlobKeys(), jobGraph.getClasspaths())
+                                .asClassLoader();
+
+                if (userCodeClassLoader == null) {
+                    throw new Exception("The user code class loader could not be initialized.");
+                }
+
+                this.userCodeClassLoader = userCodeClassLoader;
+
+                // high availability services next
+                this.leaderElectionService =
+                        haServices.getJobManagerLeaderElectionService(jobGraph.getJobID());
+
+                this.leaderGatewayFuture = new CompletableFuture<>();
+
+                // TODO: now start the StreamManager  DEMO1 : (as null first and then try to create
+                // a new one when granted leadership.) See line 315
+                //                this.streamManagerService =
+                // streamManagerFactory.createStreamManagerService(jobGraph, userCodeClassLoader);
+                this.streamManagerService = null;
+                // End of DEMO1.
+            } catch (IOException e) {
+                throw new Exception("Cannot set up the user code libraries: " + e.getMessage(), e);
+            }
         } catch (Throwable t) {
             terminationFuture.completeExceptionally(t);
             resultFuture.completeExceptionally(t);
@@ -172,6 +203,11 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
     @Override
     public JobID getJobID() {
         return jobGraph.getJobID();
+    }
+
+    @Override
+    public CompletableFuture<JobManagerRunnerResult> getResultFuture() {
+        return resultFuture;
     }
 
     // ----------------------------------------------------------------------------------------------
@@ -213,14 +249,15 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
                                                 t,
                                                 ExceptionUtils.stripCompletionException(throwable));
                             }
-                            // -------------------------------------------暂时屏蔽---------------------------------------
+
                             //
                             // libraryCacheManager.unregisterJob(jobGraph.getJobID());
-                            // -------------------------------------------暂时屏蔽---------------------------------------
+                            classLoaderLease.release();
+
                             if (throwable != null) {
                                 terminationFuture.completeExceptionally(
                                         new FlinkException(
-                                                "Could not properly shut down the JobManagerRunner",
+                                                "Could not properly shut down the StreamManagerRunner",
                                                 throwable));
                             } else {
                                 terminationFuture.complete(null);
@@ -236,11 +273,6 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
 
             return terminationFuture;
         }
-    }
-
-    @Override
-    public CompletableFuture<JobManagerRunnerResult> getResultFuture() {
-        return resultFuture;
     }
 
     // ----------------------------------------------------------------------------------------------
@@ -296,12 +328,21 @@ public class StreamManagerRunnerImpl implements LeaderContender, StreamManagerRu
     }
 
     private CompletionStage<Void> startStreamManager(UUID leaderSessionId) {
-        log.info(
-                "StreamManager runner for job {} ({}) was granted leadership with session id {} at {}.",
-                jobGraph.getName(),
-                jobGraph.getJobID(),
-                leaderSessionId,
-                streamManagerService.getAddress());
+        // TODO: Check line 161: this is only a code for DEMO 1!!
+        try {
+            this.streamManagerService =
+                    streamManagerServiceFactory.createStreamManagerService(
+                            jobGraph, userCodeClassLoader, leaderSessionId);
+            log.info(
+                    "StreamManager runner for job {} ({}) was granted leadership with session id {} at {}.",
+                    jobGraph.getName(),
+                    jobGraph.getJobID(),
+                    leaderSessionId,
+                    streamManagerService.getAddress());
+        } catch (Exception e) {
+            log.error("++++++ Error at starting Stream Manager Service!");
+        }
+        // End of DEMO1.
 
         final CompletableFuture<Acknowledge> startFuture;
         try {

@@ -20,6 +20,7 @@ package org.apache.flink.streaming.controlplane.streammanager.factories;
 
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.controlplane.streammanager.StreamManagerId;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
@@ -30,6 +31,8 @@ import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManager;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerConfiguration;
 import org.apache.flink.streaming.controlplane.streammanager.StreamManagerRuntimeServices;
+
+import java.util.UUID;
 
 /**
  * Default implementation of the {@link StreamManagerServiceFactory}. TODO: 1. decide about the
@@ -71,14 +74,15 @@ public class DefaultStreamManagerServiceFactory implements StreamManagerServiceF
     }
 
     @Override
-    public StreamManager createStreamManagerService(JobGraph jobGraph, ClassLoader userCodeLoader)
-            throws Exception {
+    public StreamManager createStreamManagerService(
+            JobGraph jobGraph, ClassLoader userCodeLoader, UUID leaderSessionID) throws Exception {
         final StreamManagerRuntimeServices streamManagerRuntimeServices =
                 StreamManagerRuntimeServices.fromConfiguration(
                         streamManagerConfiguration, haServices, rpcService.getScheduledExecutor());
 
         return new StreamManager(
                 rpcService,
+                StreamManagerId.fromUuidOrNull(leaderSessionID),
                 streamManagerConfiguration,
                 ResourceID.generate(),
                 jobGraph,

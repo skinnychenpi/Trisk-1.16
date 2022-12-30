@@ -20,12 +20,16 @@ package org.apache.flink.streaming.controlplane.streammanager.abstraction;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.controlplane.PrimitiveOperation;
 import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
 import org.apache.flink.runtime.rescale.JobRescaleAction;
+import org.apache.flink.runtime.rescale.reconfigure.AbstractCoordinator;
 import org.apache.flink.streaming.controlplane.udm.ControlPolicy;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * This interface defined some instruction which could be called by several control policy user
@@ -95,12 +99,12 @@ public interface ReconfigurationExecutor {
 
     void noOp(int operatorID, ControlPolicy waitingController);
 
-    // -------------------------------暂时屏蔽------------------------------
-    //    default void callCustomizeOperations(
-    //            Function<PrimitiveOperation<Map<Integer, Map<Integer, AbstractCoordinator.Diff>>>,
-    // CompletableFuture<?>> operationCaller) {
-    //
-    //    }
-    // -------------------------------暂时屏蔽------------------------------
+    default void callCustomizeOperations(
+            Function<
+                            PrimitiveOperation<
+                                    Map<Integer, Map<Integer, AbstractCoordinator.Diff>>>,
+                            CompletableFuture<?>>
+                    operationCaller) {}
+
     Class<?> registerFunctionClass(String funcClassName, String sourceCode);
 }

@@ -115,6 +115,12 @@ public class StreamConfig implements Serializable {
     private static final String TIME_CHARACTERISTIC = "timechar";
 
     private static final String MANAGED_MEMORY_FRACTION_PREFIX = "managedMemFraction.";
+
+    private static final String EDGES_IN_ORDER = "edgesInOrder";
+
+    private static final String NONCHAINED_OUTPUTS = "nonChainedOutputs";
+
+    private static final String OUT_STREAM_EDGES = "outStreamEdges";
     private static final ConfigOption<Boolean> STATE_BACKEND_USE_MANAGED_MEMORY =
             ConfigOptions.key("statebackend.useManagedMemory")
                     .booleanType()
@@ -859,5 +865,51 @@ public class StreamConfig implements Serializable {
         return inputConfig instanceof StreamConfig.NetworkInputConfig
                 && ((StreamConfig.NetworkInputConfig) inputConfig).getInputRequirement()
                         == StreamConfig.InputRequirement.SORTED;
+    }
+
+    public List<StreamEdge> getOutEdgesInOrder(ClassLoader cl) {
+        try {
+            List<StreamEdge> outEdgesInOrder =
+                    InstantiationUtil.readObjectFromConfig(this.config, EDGES_IN_ORDER, cl);
+            return outEdgesInOrder == null ? new ArrayList<StreamEdge>() : outEdgesInOrder;
+        } catch (Exception e) {
+            throw new StreamTaskException("Could not instantiate outputs in order.", e);
+        }
+    }
+
+    public void setOutEdgesInOrder(List<StreamEdge> outEdgeList) {
+        try {
+            InstantiationUtil.writeObjectToConfig(outEdgeList, this.config, EDGES_IN_ORDER);
+        } catch (IOException e) {
+            throw new StreamTaskException("Could not serialize outputs in order.", e);
+        }
+    }
+
+    public List<StreamEdge> getNonChainedOutputs(ClassLoader cl) {
+        try {
+            List<StreamEdge> nonChainedOutputs =
+                    InstantiationUtil.readObjectFromConfig(this.config, NONCHAINED_OUTPUTS, cl);
+            return nonChainedOutputs == null ? new ArrayList<StreamEdge>() : nonChainedOutputs;
+        } catch (Exception e) {
+            throw new StreamTaskException("Could not instantiate non chained outputs.", e);
+        }
+    }
+
+    public void setNonChainedOutputs(List<StreamEdge> outputvertexIDs) {
+        try {
+            InstantiationUtil.writeObjectToConfig(outputvertexIDs, this.config, NONCHAINED_OUTPUTS);
+        } catch (IOException e) {
+            throw new StreamTaskException("Cannot serialize non chained outputs.", e);
+        }
+    }
+
+    public List<StreamEdge> getOutEdges(ClassLoader cl) {
+        try {
+            List<StreamEdge> outEdges =
+                    InstantiationUtil.readObjectFromConfig(this.config, OUT_STREAM_EDGES, cl);
+            return outEdges == null ? new ArrayList<StreamEdge>() : outEdges;
+        } catch (Exception e) {
+            throw new StreamTaskException("Could not instantiate outputs.", e);
+        }
     }
 }

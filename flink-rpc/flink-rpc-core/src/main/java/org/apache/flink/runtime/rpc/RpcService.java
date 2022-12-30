@@ -24,6 +24,7 @@ import org.apache.flink.util.concurrent.ScheduledExecutor;
 import java.io.Serializable;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -172,4 +173,17 @@ public interface RpcService {
      * @return Future containing the callable's future result
      */
     <T> CompletableFuture<T> execute(Callable<T> callable);
+
+    /**
+     * Gets the executor, provided by this RPC service. This executor can be used for example for
+     * the {@code handleAsync(...)} or {@code thenAcceptAsync(...)} methods of futures.
+     *
+     * <p><b>IMPORTANT:</b> This executor does not isolate the method invocations against any
+     * concurrent invocations and is therefore not suitable to run completion methods of futures
+     * that modify state of an {@link RpcEndpoint}. For such operations, one needs to use the {@link
+     * RpcEndpoint#getMainThreadExecutor() MainThreadExecutionContext} of that {@code RpcEndpoint}.
+     *
+     * @return The execution context provided by the RPC service
+     */
+    Executor getExecutor();
 }

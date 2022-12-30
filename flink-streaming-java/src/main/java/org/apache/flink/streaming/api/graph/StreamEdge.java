@@ -151,6 +151,10 @@ public class StreamEdge implements Serializable {
                         + uniqueId;
     }
 
+    public String getEdgeId() {
+        return edgeId;
+    }
+
     public int getSourceId() {
         return sourceId;
     }

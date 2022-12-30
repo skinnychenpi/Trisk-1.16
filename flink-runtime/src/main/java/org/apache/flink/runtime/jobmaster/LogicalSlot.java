@@ -127,6 +127,13 @@ public interface LogicalSlot {
      */
     SlotRequestId getSlotRequestId();
 
+    /**
+     * Gets the slot number on the TaskManager.
+     *
+     * @return slot number
+     */
+    int getPhysicalSlotNumber();
+
     /** Payload for a logical slot. */
     interface Payload {
 

@@ -35,7 +35,7 @@ public class JobEdge implements java.io.Serializable {
     private final JobVertex target;
 
     /** The distribution pattern that should be used for this job edge. */
-    private final DistributionPattern distributionPattern;
+    private DistributionPattern distributionPattern;
 
     /** The channel rescaler that should be used for this job edge on downstream side. */
     private SubtaskStateMapper downstreamSubtaskStateMapper = SubtaskStateMapper.ROUND_ROBIN;
@@ -113,6 +113,11 @@ public class JobEdge implements java.io.Serializable {
      */
     public DistributionPattern getDistributionPattern() {
         return this.distributionPattern;
+    }
+
+    /** Sets the distribution pattern used for this edge. */
+    public void setDistributionPattern(DistributionPattern distributionPattern) {
+        this.distributionPattern = distributionPattern;
     }
 
     /**

@@ -20,27 +20,28 @@ package org.apache.flink.runtime.jobmaster;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.registration.RegistrationResponse;
-import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.util.AbstractID;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Base class for responses from the ResourceManager to a registration attempt by a JobMaster. */
-public class JobMasterRegistrationSuccess extends RegistrationResponse.Success {
+public class JobMasterRegistrationSuccess<ID extends AbstractID>
+        extends RegistrationResponse.Success {
 
     private static final long serialVersionUID = 5577641250204140415L;
 
-    private final ResourceManagerId resourceManagerId;
+    private final ID registrationTargetID;
 
     private final ResourceID resourceManagerResourceId;
 
     public JobMasterRegistrationSuccess(
-            final ResourceManagerId resourceManagerId, final ResourceID resourceManagerResourceId) {
-        this.resourceManagerId = checkNotNull(resourceManagerId);
+            final ID registrationTargetID, final ResourceID resourceManagerResourceId) {
+        this.registrationTargetID = checkNotNull(registrationTargetID);
         this.resourceManagerResourceId = checkNotNull(resourceManagerResourceId);
     }
 
-    public ResourceManagerId getResourceManagerId() {
-        return resourceManagerId;
+    public ID getResourceManagerId() {
+        return registrationTargetID;
     }
 
     public ResourceID getResourceManagerResourceId() {
@@ -50,8 +51,8 @@ public class JobMasterRegistrationSuccess extends RegistrationResponse.Success {
     @Override
     public String toString() {
         return "JobMasterRegistrationSuccess{"
-                + "resourceManagerId="
-                + resourceManagerId
+                + "registrationTargetId (could be StreamManagerID or ResourceManagerID) ="
+                + registrationTargetID
                 + ", resourceManagerResourceId="
                 + resourceManagerResourceId
                 + '}';

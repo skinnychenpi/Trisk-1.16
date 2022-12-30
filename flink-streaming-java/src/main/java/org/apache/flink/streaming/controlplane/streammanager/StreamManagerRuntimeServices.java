@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.controlplane.streammanager;
 
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.resourcemanager.DefaultJobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.ScheduledExecutor;
@@ -40,13 +41,9 @@ public class StreamManagerRuntimeServices {
             HighAvailabilityServices highAvailabilityServices,
             ScheduledExecutor scheduledExecutor)
             throws Exception {
-        // -------------------------------------------暂时屏蔽---------------------------------------
-        //        final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
-        //                highAvailabilityServices,
-        //                scheduledExecutor,
-        //                configuration.getRpcTimeout());
-        final JobLeaderIdService jobLeaderIdService = null;
-        // -------------------------------------------暂时屏蔽---------------------------------------
+        final JobLeaderIdService jobLeaderIdService =
+                new DefaultJobLeaderIdService(
+                        highAvailabilityServices, scheduledExecutor, configuration.getRpcTimeout());
 
         return new StreamManagerRuntimeServices(jobLeaderIdService);
     }

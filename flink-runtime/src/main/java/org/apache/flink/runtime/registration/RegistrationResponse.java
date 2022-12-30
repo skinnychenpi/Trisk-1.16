@@ -97,4 +97,33 @@ public abstract class RegistrationResponse implements Serializable {
             return "Registration Rejected";
         }
     }
+
+    // ----------------------------------------------------------------------------
+
+    /** A rejected (declined) registration. */
+    public static final class Decline extends RegistrationResponse {
+        private static final long serialVersionUID = 1L;
+
+        /** The rejection reason. */
+        private final String reason;
+
+        /**
+         * Creates a new rejection message.
+         *
+         * @param reason The reason for the rejection.
+         */
+        public Decline(String reason) {
+            this.reason = reason != null ? reason : "(unknown)";
+        }
+
+        /** Gets the reason for the rejection. */
+        public String getReason() {
+            return reason;
+        }
+
+        @Override
+        public String toString() {
+            return "Registration Declined (" + reason + ')';
+        }
+    }
 }

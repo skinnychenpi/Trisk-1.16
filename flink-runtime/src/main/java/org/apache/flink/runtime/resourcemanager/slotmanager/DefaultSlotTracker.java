@@ -224,6 +224,11 @@ public class DefaultSlotTracker implements SlotTracker {
         return taskExecutorConnections.values();
     }
 
+    @Override
+    public Collection<TaskManagerSlotInformation> getAllSlots() {
+        return Collections.unmodifiableCollection(slots.values());
+    }
+
     @VisibleForTesting
     boolean areMapsEmpty() {
         return slots.isEmpty() && freeSlots.isEmpty();

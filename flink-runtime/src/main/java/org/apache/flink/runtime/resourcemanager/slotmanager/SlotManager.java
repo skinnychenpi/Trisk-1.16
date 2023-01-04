@@ -158,4 +158,6 @@ public interface SlotManager extends AutoCloseable {
      * changed.
      */
     void triggerResourceRequirementsCheck();
+
+    Collection<TaskManagerSlotInformation> getAllSlots();
 }

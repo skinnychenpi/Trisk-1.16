@@ -78,6 +78,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorCoordinatorHolder
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
+import org.apache.flink.runtime.rescale.JobRescaleCoordinator;
 import org.apache.flink.runtime.scheduler.exceptionhistory.FailureHandlingResultSnapshot;
 import org.apache.flink.runtime.scheduler.exceptionhistory.RootExceptionHistoryEntry;
 import org.apache.flink.runtime.scheduler.metrics.DeploymentStateTimeMetrics;
@@ -161,6 +162,8 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
 
     private final DeploymentStateTimeMetrics deploymentStateTimeMetrics;
 
+    private final JobRescaleCoordinator jobRescaleCoordinator;
+
     public SchedulerBase(
             final Logger log,
             final JobGraph jobGraph,
@@ -231,6 +234,13 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
         this.exceptionHistory =
                 new BoundedFIFOQueue<>(
                         jobMasterConfiguration.getInteger(WebOptions.MAX_EXCEPTION_HISTORY_SIZE));
+
+        this.jobRescaleCoordinator = new JobRescaleCoordinator(jobGraph, executionGraph);
+    }
+
+    @Override
+    public JobRescaleCoordinator getJobRescaleCoordinator() {
+        return jobRescaleCoordinator;
     }
 
     private void shutDownCheckpointServices(JobStatus jobStatus) {

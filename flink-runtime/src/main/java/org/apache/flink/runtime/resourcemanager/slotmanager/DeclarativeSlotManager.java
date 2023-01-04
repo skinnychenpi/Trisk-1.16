@@ -190,6 +190,11 @@ public class DeclarativeSlotManager implements SlotManager {
         checkResourceRequirementsWithDelay();
     }
 
+    @Override
+    public Collection<TaskManagerSlotInformation> getAllSlots() {
+        return slotTracker.getAllSlots();
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Component lifecycle methods
     // ---------------------------------------------------------------------------------------------

@@ -46,6 +46,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
+import org.apache.flink.runtime.rescale.JobRescaleCoordinator;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.util.AutoCloseableAsync;
@@ -67,6 +68,8 @@ import java.util.concurrent.CompletableFuture;
  * invocations will originate from a thread in the {@link ComponentMainThreadExecutor}.
  */
 public interface SchedulerNG extends GlobalFailureHandler, AutoCloseableAsync {
+
+    JobRescaleCoordinator getJobRescaleCoordinator();
 
     void startScheduling();
 

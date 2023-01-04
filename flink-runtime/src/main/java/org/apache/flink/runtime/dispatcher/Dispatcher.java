@@ -85,6 +85,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.FutureUtils;
+import org.apache.flink.util.function.BiConsumerWithException;
 import org.apache.flink.util.function.FunctionUtils;
 import org.apache.flink.util.function.ThrowingConsumer;
 
@@ -464,6 +465,43 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
         }
     }
 
+    public CompletableFuture<Acknowledge> submitJob(
+            JobGraph jobGraph, String streamManagerAddress, Time timeout) {
+        log.info(
+                "Received JobGraph submission '{}' ({}).", jobGraph.getName(), jobGraph.getJobID());
+        try {
+            if (isDuplicateJob(jobGraph.getJobID())) {
+                if (isInGloballyTerminalState(jobGraph.getJobID())) {
+                    log.warn(
+                            "Ignoring JobGraph submission '{}' ({}) because the job already reached a globally-terminal state (i.e. {}) in a previous execution.",
+                            jobGraph.getName(),
+                            jobGraph.getJobID(),
+                            Arrays.stream(JobStatus.values())
+                                    .filter(JobStatus::isGloballyTerminalState)
+                                    .map(JobStatus::name)
+                                    .collect(Collectors.joining(", ")));
+                }
+
+                final DuplicateJobSubmissionException exception =
+                        isInGloballyTerminalState(jobGraph.getJobID())
+                                ? DuplicateJobSubmissionException.ofGloballyTerminated(
+                                        jobGraph.getJobID())
+                                : DuplicateJobSubmissionException.of(jobGraph.getJobID());
+                return FutureUtils.completedExceptionally(exception);
+            } else if (isPartialResourceConfigured(jobGraph)) {
+                return FutureUtils.completedExceptionally(
+                        new JobSubmissionException(
+                                jobGraph.getJobID(),
+                                "Currently jobs is not supported if parts of the vertices have "
+                                        + "resources configured. The limitation will be removed in future versions."));
+            } else {
+                return internalSubmitJob(jobGraph, streamManagerAddress);
+            }
+        } catch (FlinkException e) {
+            return FutureUtils.completedExceptionally(e);
+        }
+    }
+
     @Override
     public CompletableFuture<Acknowledge> submitFailedJob(
             JobID jobId, String jobName, Throwable exception) {
@@ -534,6 +572,15 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
                 .thenCompose(Function.identity());
     }
 
+    private CompletableFuture<Acknowledge> internalSubmitJob(
+            JobGraph jobGraph, String streamManagerAddress) {
+        log.info("Submitting job '{}' ({}).", jobGraph.getName(), jobGraph.getJobID());
+        return waitForTerminatingJob(
+                        jobGraph.getJobID(), jobGraph, streamManagerAddress, this::persistAndRunJob)
+                .handle((ignored, throwable) -> handleTermination(jobGraph.getJobID(), throwable))
+                .thenCompose(Function.identity());
+    }
+
     private CompletableFuture<Acknowledge> handleTermination(
             JobID jobId, @Nullable Throwable terminationThrowable) {
         if (terminationThrowable != null) {
@@ -568,6 +615,11 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
         runJob(createJobMasterRunner(jobGraph), ExecutionType.SUBMISSION);
     }
 
+    private void persistAndRunJob(JobGraph jobGraph, String streamManagerAddress) throws Exception {
+        jobGraphWriter.putJobGraph(jobGraph);
+        runJob(createJobMasterRunner(jobGraph, streamManagerAddress), ExecutionType.SUBMISSION);
+    }
+
     private JobManagerRunner createJobMasterRunner(JobGraph jobGraph) throws Exception {
         Preconditions.checkState(!jobManagerRunnerRegistry.isRegistered(jobGraph.getJobID()));
         return jobManagerRunnerFactory.createJobManagerRunner(
@@ -580,6 +632,22 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
                 new DefaultJobManagerJobMetricGroupFactory(jobManagerMetricGroup),
                 fatalErrorHandler,
                 System.currentTimeMillis());
+    }
+
+    private JobManagerRunner createJobMasterRunner(JobGraph jobGraph, String streamManagerAddress)
+            throws Exception {
+        Preconditions.checkState(!jobManagerRunnerRegistry.isRegistered(jobGraph.getJobID()));
+        return new StreamManagerJobManagerRunnerFactory(streamManagerAddress)
+                .createJobManagerRunner(
+                        jobGraph,
+                        configuration,
+                        getRpcService(),
+                        highAvailabilityServices,
+                        heartbeatServices,
+                        jobManagerSharedServices,
+                        new DefaultJobManagerJobMetricGroupFactory(jobManagerMetricGroup),
+                        fatalErrorHandler,
+                        System.currentTimeMillis());
     }
 
     private JobManagerRunner createJobCleanupRunner(JobResult dirtyJobResult) throws Exception {
@@ -1287,6 +1355,32 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
                         (ignored) -> {
                             jobManagerRunnerTerminationFutures.remove(jobId);
                             action.accept(jobGraph);
+                        }),
+                getMainThreadExecutor());
+    }
+
+    private CompletableFuture<Void> waitForTerminatingJob(
+            JobID jobId,
+            JobGraph jobGraph,
+            String streamManagerAddress,
+            BiConsumerWithException<JobGraph, String, ?> action) {
+        final CompletableFuture<Void> jobManagerTerminationFuture =
+                getJobTerminationFuture(jobId)
+                        .exceptionally(
+                                (Throwable throwable) -> {
+                                    throw new CompletionException(
+                                            new DispatcherException(
+                                                    String.format(
+                                                            "Termination of previous JobManager for job %s failed. Cannot submit job under the same job id.",
+                                                            jobId),
+                                                    throwable));
+                                });
+
+        return jobManagerTerminationFuture.thenAcceptAsync(
+                FunctionUtils.uncheckedConsumer(
+                        (ignored) -> {
+                            jobManagerRunnerTerminationFutures.remove(jobId);
+                            action.accept(jobGraph, streamManagerAddress);
                         }),
                 getMainThreadExecutor());
     }

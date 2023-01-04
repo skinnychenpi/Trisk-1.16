@@ -38,6 +38,8 @@ import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.util.function.FunctionUtils;
 
+import javax.annotation.Nonnull;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -57,6 +59,8 @@ public class DefaultJobMasterServiceFactory implements JobMasterServiceFactory {
     private final ClassLoader userCodeClassloader;
     private final ShuffleMaster<?> shuffleMaster;
     private final long initializationTimestamp;
+
+    private String streamManagerAddress;
 
     public DefaultJobMasterServiceFactory(
             Executor executor,
@@ -86,14 +90,55 @@ public class DefaultJobMasterServiceFactory implements JobMasterServiceFactory {
         this.initializationTimestamp = initializationTimestamp;
     }
 
+    public DefaultJobMasterServiceFactory(
+            Executor executor,
+            RpcService rpcService,
+            JobMasterConfiguration jobMasterConfiguration,
+            JobGraph jobGraph,
+            HighAvailabilityServices haServices,
+            SlotPoolServiceSchedulerFactory slotPoolServiceSchedulerFactory,
+            JobManagerSharedServices jobManagerSharedServices,
+            HeartbeatServices heartbeatServices,
+            JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
+            FatalErrorHandler fatalErrorHandler,
+            ClassLoader userCodeClassloader,
+            long initializationTimestamp,
+            @Nonnull String streamManagerAddress) {
+        this.executor = executor;
+        this.rpcService = rpcService;
+        this.jobMasterConfiguration = jobMasterConfiguration;
+        this.jobGraph = jobGraph;
+        this.haServices = haServices;
+        this.slotPoolServiceSchedulerFactory = slotPoolServiceSchedulerFactory;
+        this.jobManagerSharedServices = jobManagerSharedServices;
+        this.heartbeatServices = heartbeatServices;
+        this.jobManagerJobMetricGroupFactory = jobManagerJobMetricGroupFactory;
+        this.fatalErrorHandler = fatalErrorHandler;
+        this.userCodeClassloader = userCodeClassloader;
+        this.shuffleMaster = jobManagerSharedServices.getShuffleMaster();
+        this.initializationTimestamp = initializationTimestamp;
+        this.streamManagerAddress = streamManagerAddress;
+    }
+
     @Override
     public CompletableFuture<JobMasterService> createJobMasterService(
             UUID leaderSessionId, OnCompletionActions onCompletionActions) {
 
-        return CompletableFuture.supplyAsync(
-                FunctionUtils.uncheckedSupplier(
-                        () -> internalCreateJobMasterService(leaderSessionId, onCompletionActions)),
-                executor);
+        return streamManagerAddress == null
+                ? CompletableFuture.supplyAsync(
+                        FunctionUtils.uncheckedSupplier(
+                                () ->
+                                        internalCreateJobMasterService(
+                                                leaderSessionId, onCompletionActions)),
+                        executor)
+                : CompletableFuture.supplyAsync(
+                        FunctionUtils.uncheckedSupplier(
+                                () ->
+                                        internalCreateJobMasterService(
+                                                leaderSessionId,
+                                                onCompletionActions,
+                                                streamManagerAddress)),
+                        executor);
     }
 
     private JobMasterService internalCreateJobMasterService(
@@ -123,6 +168,43 @@ public class DefaultJobMasterServiceFactory implements JobMasterServiceFactory {
                         BlocklistUtils.loadBlocklistHandlerFactory(
                                 jobMasterConfiguration.getConfiguration()),
                         initializationTimestamp);
+
+        jobMaster.start();
+
+        return jobMaster;
+    }
+
+    private JobMasterService internalCreateJobMasterService(
+            UUID leaderSessionId,
+            OnCompletionActions onCompletionActions,
+            String streamManagerAddress)
+            throws Exception {
+        final JobMaster jobMaster =
+                new JobMaster(
+                        rpcService,
+                        JobMasterId.fromUuidOrNull(leaderSessionId),
+                        jobMasterConfiguration,
+                        ResourceID.generate(),
+                        jobGraph,
+                        haServices,
+                        slotPoolServiceSchedulerFactory,
+                        jobManagerSharedServices,
+                        heartbeatServices,
+                        jobManagerJobMetricGroupFactory,
+                        onCompletionActions,
+                        fatalErrorHandler,
+                        userCodeClassloader,
+                        shuffleMaster,
+                        lookup ->
+                                new JobMasterPartitionTrackerImpl(
+                                        jobGraph.getJobID(), shuffleMaster, lookup),
+                        new DefaultExecutionDeploymentTracker(),
+                        DefaultExecutionDeploymentReconciler::new,
+                        BlocklistUtils.loadBlocklistHandlerFactory(
+                                jobMasterConfiguration.getConfiguration()),
+                        initializationTimestamp);
+
+        jobMaster.setStreamManagerAddress(streamManagerAddress);
 
         jobMaster.start();
 

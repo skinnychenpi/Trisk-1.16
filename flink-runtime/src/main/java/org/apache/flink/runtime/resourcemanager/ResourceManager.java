@@ -58,6 +58,7 @@ import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistrat
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerSlotInformation;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
@@ -343,6 +344,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     // ------------------------------------------------------------------------
     //  RPC methods
     // ------------------------------------------------------------------------
+
+    @Override
+    public CompletableFuture<Collection<TaskManagerSlotInformation>> getAllSlots() {
+        return CompletableFuture.completedFuture(slotManager.getAllSlots());
+    }
 
     @Override
     public CompletableFuture<RegistrationResponse> registerJobMaster(

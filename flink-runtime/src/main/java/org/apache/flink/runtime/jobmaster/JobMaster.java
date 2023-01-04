@@ -36,6 +36,11 @@ import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
+import org.apache.flink.runtime.controlplane.abstraction.resource.AbstractSlot;
+import org.apache.flink.runtime.controlplane.abstraction.resource.FlinkSlot;
+import org.apache.flink.runtime.controlplane.streammanager.StreamManagerGateway;
+import org.apache.flink.runtime.controlplane.streammanager.StreamManagerId;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
@@ -60,6 +65,8 @@ import org.apache.flink.runtime.jobmaster.slotpool.BlocklistDeclarativeSlotPoolF
 import org.apache.flink.runtime.jobmaster.slotpool.DeclarativeSlotPoolFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPoolFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolService;
+import org.apache.flink.runtime.jobmaster.streaming.StreamingLeaderListener;
+import org.apache.flink.runtime.jobmaster.streaming.StreamingLeaderService;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -75,6 +82,8 @@ import org.apache.flink.runtime.query.UnknownKvStateLocation;
 import org.apache.flink.runtime.registration.RegisteredRpcConnection;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.registration.RetryingRegistration;
+import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
+import org.apache.flink.runtime.rescale.reconfigure.AbstractCoordinator;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -109,9 +118,11 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -119,8 +130,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
@@ -218,6 +231,15 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
     private HeartbeatManager<Void, Void> resourceManagerHeartbeatManager;
 
     private final BlocklistHandler blocklistHandler;
+
+    // -------- StreamManager fields ---------
+    private String streamManagerAddress;
+
+    private final StreamingLeaderService streamingLeaderService;
+
+    @Nullable
+    private CompletableFuture<StreamManagerGateway> streamManagerGatewayFuture =
+            new CompletableFuture<>();
 
     // ------------------------------------------------------------------------
 
@@ -357,6 +379,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
         this.establishedResourceManagerConnection = null;
 
         this.accumulators = new HashMap<>();
+
+        this.streamingLeaderService =
+                new StreamingLeaderService(
+                        RetryingRegistrationConfiguration.defaultConfiguration());
     }
 
     private SchedulerNG createScheduler(
@@ -972,6 +998,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
             // start the slot pool make sure the slot pool now accepts messages for this leader
             slotPoolService.start(getFencingToken(), getAddress(), getMainThreadExecutor());
 
+            // simply connect to the target stream manager
+            connectToStreamManager();
+
             // job is ready to go, try to establish connection with resource manager
             //   - activate leader retrieval for the resource manager
             //   - on notification of the leader, the connection will be established and
@@ -1066,7 +1095,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
         }
     }
 
-    private void jobStatusChanged(final JobStatus newJobStatus) {
+    private void jobStatusChanged(final JobStatus newJobStatus, long timestamp) {
         validateRunsInMainThread();
         if (newJobStatus.isGloballyTerminalState()) {
             runAsync(
@@ -1086,6 +1115,45 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
             futureExecutor.execute(
                     () -> jobCompletionActions.jobReachedGloballyTerminalState(executionGraphInfo));
         }
+        checkState(streamManagerGatewayFuture != null);
+        streamManagerGatewayFuture.thenAccept(
+                streamManagerGateway -> {
+                    ExecutionPlan jobAbstraction = null;
+                    if (newJobStatus == JobStatus.RUNNING) {
+                        AbstractCoordinator abstractCoordinator =
+                                schedulerNG
+                                        .getJobRescaleCoordinator()
+                                        .getOperatorUpdateCoordinator();
+                        jobAbstraction = abstractCoordinator.getHeldExecutionPlanCopy();
+                    }
+                    ExecutionPlan finalJobAbstraction = jobAbstraction;
+                    resourceManagerConnection
+                            .getTargetGateway()
+                            .getAllSlots()
+                            .thenAccept(
+                                    taskManagerSlots -> {
+                                        // compute
+                                        Map<String, List<AbstractSlot>> slotMap = new HashMap<>();
+                                        taskManagerSlots.forEach(
+                                                taskManagerSlot -> {
+                                                    AbstractSlot slot =
+                                                            FlinkSlot.fromTaskManagerSlot(
+                                                                    taskManagerSlot);
+                                                    List<AbstractSlot> slots =
+                                                            slotMap.computeIfAbsent(
+                                                                    slot.getLocation(),
+                                                                    k -> new ArrayList<>());
+                                                    slots.add(slot);
+                                                });
+                                        finalJobAbstraction.setSlotMap(slotMap);
+                                        streamManagerGateway.jobStatusChanged(
+                                                jobGraph.getJobID(),
+                                                newJobStatus,
+                                                timestamp,
+                                                null,
+                                                finalJobAbstraction);
+                                    });
+                });
     }
 
     private void notifyOfNewResourceManagerLeader(
@@ -1143,6 +1211,22 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
                         futureExecutor);
 
         resourceManagerConnection.start();
+    }
+
+    private void connectToStreamManager() throws Exception {
+        assert (streamManagerAddress != null);
+
+        log.info("Connecting to StreamManager ...");
+
+        this.streamingLeaderService.start(
+                new StreamingLeaderService.JobMasterInfo(
+                        getFencingToken(), resourceId, getAddress(), jobGraph.getJobID()),
+                getRpcService(),
+                highAvailabilityServices,
+                new StreamingLeaderListenerImpl(
+                        jobGraph.getJobID(), resourceId, getAddress(), getFencingToken()));
+
+        this.streamingLeaderService.addJob(jobGraph.getJobID(), this.streamManagerAddress);
     }
 
     private void establishResourceManagerConnection(
@@ -1234,6 +1318,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
     @Override
     public JobMasterGateway getGateway() {
         return getSelfGateway(JobMasterGateway.class);
+    }
+
+    public void setStreamManagerAddress(@Nullable String streamManagerAddress) {
+        this.streamManagerAddress = streamManagerAddress;
     }
 
     // ----------------------------------------------------------------------------------------------
@@ -1393,7 +1481,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
 
             if (running) {
                 // run in rpc thread to avoid concurrency
-                runAsync(() -> jobStatusChanged(newJobStatus));
+                runAsync(() -> jobStatusChanged(newJobStatus, timestamp));
             }
         }
 
@@ -1527,5 +1615,60 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
 
         @Override
         public void unblockResources(Collection<BlockedNode> unblockedNodes) {}
+    }
+
+    private class StreamingLeaderListenerImpl implements StreamingLeaderListener {
+
+        private final JobID jobID;
+
+        private final ResourceID jobManagerResourceID;
+
+        private final String jobManagerRpcAddress;
+
+        private final JobMasterId jobMasterId;
+
+        StreamingLeaderListenerImpl(
+                final JobID jobID,
+                final ResourceID jobManagerResourceID,
+                final String jobManagerRpcAddress,
+                final JobMasterId jobMasterId) {
+            this.jobID = checkNotNull(jobID);
+            this.jobManagerResourceID = checkNotNull(jobManagerResourceID);
+            this.jobManagerRpcAddress = checkNotNull(jobManagerRpcAddress);
+            this.jobMasterId = checkNotNull(jobMasterId);
+        }
+
+        @Override
+        public void streamManagerGainedLeadership(
+                JobID jobId,
+                StreamManagerGateway streamManagerGateway,
+                JobMasterRegistrationSuccess registrationMessage) {
+            log.info("a new stream manager gained Leadership:" + streamManagerGateway.getAddress());
+            schedulerNG.getJobRescaleCoordinator().setStreamManagerGateway(streamManagerGateway);
+            AbstractCoordinator abstractCoordinator =
+                    schedulerNG.getJobRescaleCoordinator().getOperatorUpdateCoordinator();
+            abstractCoordinator.setStreamRelatedInstanceFactory(
+                    streamManagerGateway.getStreamRelatedInstanceFactory());
+
+            assert streamManagerGatewayFuture != null;
+            streamManagerGatewayFuture.complete(streamManagerGateway);
+        }
+
+        @Override
+        public void streamManagerLostLeadership(JobID jobId, StreamManagerId streamManagerId) {
+            try {
+                assert streamManagerGatewayFuture != null;
+                checkState(
+                        streamManagerGatewayFuture.get(0L, TimeUnit.SECONDS).getFencingToken()
+                                == streamManagerId,
+                        "The given stream manager id is not consistent with current stream manager id");
+                streamManagerGatewayFuture = new CompletableFuture<>();
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void handleError(Throwable throwable) {}
     }
 }

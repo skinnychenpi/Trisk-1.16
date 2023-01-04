@@ -109,4 +109,13 @@ interface SlotTracker {
      * @return task executors with at least 1 slot for the job
      */
     Collection<TaskExecutorConnection> getTaskExecutorsWithAllocatedSlotsForJob(JobID jobId);
+
+    /**
+     * Returns a view over all registered slots. The returned collection cannot be modified
+     * directly, but reflects changes to the set of all registered slots. Note: This is Trisk-1.16
+     * used API.
+     *
+     * @return free slots
+     */
+    Collection<TaskManagerSlotInformation> getAllSlots();
 }

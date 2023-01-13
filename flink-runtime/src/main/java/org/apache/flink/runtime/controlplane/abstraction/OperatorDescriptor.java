@@ -168,7 +168,7 @@ public class OperatorDescriptor {
     }
 
     /**
-     * we assume that the key operator only have one upstream opeartor
+     * we assume that the key operator only have one upstream operator
      *
      * @param keyStateAllocation
      */

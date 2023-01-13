@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.rescale.reconfigure;
 
+import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.controlplane.ExecutionPlanAndJobGraphUpdaterFactory;
 import org.apache.flink.runtime.controlplane.PrimitiveOperation;
 import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
@@ -7,6 +8,7 @@ import org.apache.flink.runtime.controlplane.abstraction.OperatorDescriptor;
 import org.apache.flink.runtime.controlplane.abstraction.OperatorDescriptorVisitor;
 import org.apache.flink.runtime.executiongraph.DefaultExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
+import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
@@ -15,10 +17,14 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.jsonplan.JsonPlanGenerator;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rescale.RescaleID;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.util.Preconditions.checkState;
 
 public abstract class AbstractCoordinator
         implements PrimitiveOperation<Map<Integer, Map<Integer, AbstractCoordinator.Diff>>> {
@@ -89,8 +95,11 @@ public abstract class AbstractCoordinator
             return null;
         }
         for (JobVertex vertex : jobGraph.getVertices()) {
-            if (vertex.getOperatorIDs().contains(operatorID)) {
-                return vertex.getID();
+            List<OperatorIDPair> idPairs = vertex.getOperatorIDs();
+            for (OperatorIDPair singlePair : idPairs) {
+                if (singlePair.getGeneratedOperatorID().equals(operatorID)) {
+                    return vertex.getID();
+                }
             }
         }
         return null;
@@ -169,14 +178,11 @@ public abstract class AbstractCoordinator
                                             .getKeyStateDistribution()); // 对其父算子的key mapping覆盖为该算子的
                             // key dist
                             // update the partition assignment of Flink JobGraph
-                            // TODO: -----------------------------  进行到下一阶段的时候开始修改
-                            // ----------------------------------
-                            // updatePartitionAssignment(heldDescriptor,
-                            // operatorWorkloadsAssignment, isRescale);
-                            //	//这一个函数很重要，进去看有很多注释，他会从job层面对target job
+                            updatePartitionAssignment(
+                                    heldDescriptor,
+                                    operatorWorkloadsAssignment,
+                                    isRescale); // 这一个函数很重要，进去看有很多注释，他会从job层面对target job
                             // vertex的上下游节点的路由进行更新，(同时更新上游的ExecutionEdges???)
-                            // TODO: -----------------------------  进行到下一阶段的时候开始修改
-                            // ----------------------------------
                             break;
                         case KEY_MAPPING: // update the key mapping of the tasks
                             // update key set will indirectly update key mapping, so we ignore this
@@ -214,125 +220,119 @@ public abstract class AbstractCoordinator
             int rawVertexID,
             int oldParallelism,
             OperatorWorkloadsAssignment operatorWorkloadsAssignment) {
+        // scale up given ejv, update involved edges & partitions
+        ExecutionJobVertex targetVertex =
+                executionGraph.getJobVertex(rawVertexIDToJobVertexID(rawVertexID)); // 执行到这里的时候并行度为2
+        JobVertex targetJobVertex =
+                jobGraph.findVertexByID(
+                        rawVertexIDToJobVertexID(rawVertexID)); // 这里的并行度已经是10了，在144行更新了
+        Preconditions.checkNotNull(targetVertex, "can not found target vertex");
+        List<JobVertexID> updatedDownstream =
+                heldExecutionPlan.getOperatorByID(rawVertexID).getChildren().stream()
+                        .map(child -> rawVertexIDToJobVertexID(child.getOperatorID()))
+                        .collect(Collectors.toList());
 
-        System.out.println(
-                "Successfully get into Rescale part, though now nothing will happen! :)");
-        // TODO: -----------------------------  进行到下一阶段的时候开始修改  ----------------------------------
-        //        // scale up given ejv, update involved edges & partitions
-        //        ExecutionJobVertex targetVertex =
-        // executionGraph.getJobVertex(rawVertexIDToJobVertexID(rawVertexID)); //执行到这里的时候并行度为2
-        //        JobVertex targetJobVertex =
-        // jobGraph.findVertexByID(rawVertexIDToJobVertexID(rawVertexID)); //这里的并行度已经是10了，在144行更新了
-        //        Preconditions.checkNotNull(targetVertex, "can not found target vertex");
-        //        List<JobVertexID> updatedDownstream =
-        // heldExecutionPlan.getOperatorByID(rawVertexID)
-        //                .getChildren().stream()
-        //                .map(child -> rawVertexIDToJobVertexID(child.getOperatorID()))
-        //                .collect(Collectors.toList());
-        //
-        //        List<JobVertexID> updatedUpstream = heldExecutionPlan.getOperatorByID(rawVertexID)
-        //                .getParents().stream()
-        //                .map(child -> rawVertexIDToJobVertexID(child.getOperatorID()))
-        //                .collect(Collectors.toList());
-        //
-        //        if (oldParallelism < targetJobVertex.getParallelism()) {
-        //            // scale out, we assume every time only one scale out will be called.
-        // Otherwise it will subsitute current candidates
-        //            this.createdCandidates.put(rawVertexID,
-        // targetVertex.scaleOut(executionGraph.getRpcTimeout(),
-        //                    executionGraph.getGlobalModVersion(), System.currentTimeMillis(),
-        // null)); //这里在execution graph对target上游的output进行了execution edge的修改（2个变成10个）+ 修改了target
-        // execution vertex（从2个变成10个）
-        //
-        //            for (JobVertexID downstreamID : updatedDownstream) {
-        //                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
-        // // 检查一下这个时候的 downstream的input的并行度是不是已经更新为10了？ANS：这个时候target的partition已经是10了，downStream还没
-        //                if (downstream != null) {
-        //
-        // downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());//这个函数利用传入的jobEdges的信息将target下游的节点的input ExecutionEdges 设定为10，并且更新到最新的partition
-        //                }
-        //            }
-        //        } else if (oldParallelism > targetJobVertex.getParallelism()) {
-        //            // scale in
-        //            List<Integer> removedTaskIds =
-        // operatorWorkloadsAssignment.getRemovedSubtask();
-        //            checkState(removedTaskIds.size() > 0);
-        //            this.removedCandidates.put(rawVertexID, targetVertex.scaleIn(removedTaskIds));
-        //
-        //            // scale in need to update upstream consumers
-        //            for (JobVertexID upstreamID : updatedUpstream) {
-        //                ExecutionJobVertex upstream = executionGraph.getJobVertex(upstreamID);
-        //                assert upstream != null;
-        //                upstream.resetProducedDataSets();
-        //                targetVertex.reconnectWithUpstream(upstream.getProducedDataSets());
-        //            }
-        //
-        //            for (JobVertexID downstreamID : updatedDownstream) {
-        //                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
-        //                assert downstream != null;
-        //                downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());
-        //            }
-        //        } else {
-        //            // placement
-        //            List<Integer> createdTaskIds =
-        // operatorWorkloadsAssignment.getCreatedSubtask();
-        //            this.createdCandidates.put(rawVertexID,
-        // targetVertex.scaleOut(executionGraph.getRpcTimeout(),
-        // executionGraph.getGlobalModVersion(),
-        //                    System.currentTimeMillis(), createdTaskIds));
-        //
-        //            for (JobVertexID downstreamID : updatedDownstream) {
-        //                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
-        //                if (downstream != null) {
-        //                    downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());
-        //                }
-        //            }
-        //
-        //            executionGraph.updateNumOfTotalVertices();
-        //
-        //            List<Integer> removedTaskIds =
-        // operatorWorkloadsAssignment.getRemovedSubtask();
-        //            this.removedCandidates.put(rawVertexID, targetVertex.scaleIn(removedTaskIds));
-        //
-        //            // scale in need to update upstream consumers
-        //            for (JobVertexID upstreamID : updatedUpstream) {
-        //                ExecutionJobVertex upstream = executionGraph.getJobVertex(upstreamID);
-        //                assert upstream != null;
-        //                upstream.resetProducedDataSets();
-        //                targetVertex.reconnectWithUpstream(upstream.getProducedDataSets());
-        //            }
-        //
-        //            for (JobVertexID downstreamID : updatedDownstream) {
-        //                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
-        //                assert downstream != null;
-        //                downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());
-        //            }
-        //        }
-        //        executionGraph.updateNumOfTotalVertices();
+        List<JobVertexID> updatedUpstream =
+                heldExecutionPlan.getOperatorByID(rawVertexID).getParents().stream()
+                        .map(child -> rawVertexIDToJobVertexID(child.getOperatorID()))
+                        .collect(Collectors.toList());
 
-        // TODO: -----------------------------  进行到下一阶段的时候开始修改  ----------------------------------
+        if (oldParallelism < targetJobVertex.getParallelism()) {
+            // scale out, we assume every time only one scale out will be called. Otherwise it will
+            // subsitute current candidates
+            this.createdCandidates.put(
+                    rawVertexID,
+                    targetVertex.scaleOut(
+                            executionGraph.getExecutionHistorySizeLimit(),
+                            executionGraph.getRpcTimeout(),
+                            System.currentTimeMillis(),
+                            null)); // 这里在execution graph对target上游的output进行了execution
+            // edge的修改（2个变成10个）+ 修改了target execution vertex（从2个变成10个）
+
+            for (JobVertexID downstreamID : updatedDownstream) {
+                ExecutionJobVertex downstream =
+                        executionGraph.getJobVertex(downstreamID); // 检查一下这个时候的
+                // downstream的input的并行度是不是已经更新为10了？ANS：这个时候target的partition已经是10了，downStream还没
+                if (downstream != null) {
+                    downstream.reconnectWithUpstream(
+                            targetVertex
+                                    .getProducedDataSets()); // 这个函数利用传入的jobEdges的信息将target下游的节点的input ExecutionEdges 设定为10，并且更新到最新的partition
+                }
+            }
+        } else if (oldParallelism > targetJobVertex.getParallelism()) {
+            // scale in
+            List<Integer> removedTaskIds = operatorWorkloadsAssignment.getRemovedSubtask();
+            checkState(removedTaskIds.size() > 0);
+            this.removedCandidates.put(rawVertexID, targetVertex.scaleIn(removedTaskIds));
+
+            // scale in need to update upstream consumers
+            for (JobVertexID upstreamID : updatedUpstream) {
+                ExecutionJobVertex upstream = executionGraph.getJobVertex(upstreamID);
+                assert upstream != null;
+                upstream.resetProducedDataSets();
+                targetVertex.reconnectWithUpstream(upstream.getProducedDataSets());
+            }
+
+            for (JobVertexID downstreamID : updatedDownstream) {
+                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
+                assert downstream != null;
+                downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());
+            }
+        } else {
+            // placement
+            List<Integer> createdTaskIds = operatorWorkloadsAssignment.getCreatedSubtask();
+            this.createdCandidates.put(
+                    rawVertexID,
+                    targetVertex.scaleOut(
+                            executionGraph.getExecutionHistorySizeLimit(),
+                            executionGraph.getRpcTimeout(),
+                            System.currentTimeMillis(),
+                            createdTaskIds));
+
+            for (JobVertexID downstreamID : updatedDownstream) {
+                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
+                if (downstream != null) {
+                    downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());
+                }
+            }
+
+            executionGraph.updateNumOfTotalVertices();
+
+            List<Integer> removedTaskIds = operatorWorkloadsAssignment.getRemovedSubtask();
+            this.removedCandidates.put(rawVertexID, targetVertex.scaleIn(removedTaskIds));
+
+            // scale in need to update upstream consumers
+            for (JobVertexID upstreamID : updatedUpstream) {
+                ExecutionJobVertex upstream = executionGraph.getJobVertex(upstreamID);
+                assert upstream != null;
+                upstream.resetProducedDataSets();
+                targetVertex.reconnectWithUpstream(upstream.getProducedDataSets());
+            }
+
+            for (JobVertexID downstreamID : updatedDownstream) {
+                ExecutionJobVertex downstream = executionGraph.getJobVertex(downstreamID);
+                assert downstream != null;
+                downstream.reconnectWithUpstream(targetVertex.getProducedDataSets());
+            }
+        }
+        executionGraph.updateNumOfTotalVertices();
     }
-    // TODO : -----------------------------  进行到下一阶段的时候开始修改  ----------------------------------
-    //    private void updatePartitionAssignment(OperatorDescriptor heldDescriptor,
-    // OperatorWorkloadsAssignment operatorWorkloadsAssignment, boolean isRescale) {
-    ////		Map<Integer, List<Integer>> partionAssignment = new HashMap<>();
-    ////		Map<Integer, List<Integer>> one = heldDescriptor.getKeyStateAllocation();
-    ////		for (int i = 0; i < one.size(); i++) {
-    ////			partionAssignment.put(i, one.get(i));
-    ////		}
-    //        if (isRescale) {
-    //            jobGraphUpdater.rescale(rawVertexIDToJobVertexID(
-    //                            heldDescriptor.getOperatorID()),
-    //                    heldDescriptor.getParallelism(),
-    //                    operatorWorkloadsAssignment.getPartitionAssignment());
-    //        } else {
-    //            jobGraphUpdater.repartition(rawVertexIDToJobVertexID(
-    //                            heldDescriptor.getOperatorID()),
-    //                    operatorWorkloadsAssignment.getPartitionAssignment());
-    //        }
-    //    }
 
-    // TODO: -----------------------------  进行到下一阶段的时候开始修改  ----------------------------------
+    private void updatePartitionAssignment(
+            OperatorDescriptor heldDescriptor,
+            OperatorWorkloadsAssignment operatorWorkloadsAssignment,
+            boolean isRescale) {
+        if (isRescale) {
+            jobGraphUpdater.rescale(
+                    rawVertexIDToJobVertexID(heldDescriptor.getOperatorID()),
+                    heldDescriptor.getParallelism(),
+                    operatorWorkloadsAssignment.getPartitionAssignment());
+        } else {
+            jobGraphUpdater.repartition(
+                    rawVertexIDToJobVertexID(heldDescriptor.getOperatorID()),
+                    operatorWorkloadsAssignment.getPartitionAssignment());
+        }
+    }
 
     private List<Integer> analyzeOperatorDifference(
             OperatorDescriptor self, OperatorDescriptor modified) {

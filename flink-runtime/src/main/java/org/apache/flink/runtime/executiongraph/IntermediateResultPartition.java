@@ -216,4 +216,9 @@ public class IntermediateResultPartition {
             consumedPartitionGroup.partitionFinished();
         }
     }
+
+    // Trisk 1.16
+    public void resetConsumers() {
+        edgeManager.resetConsumers(this.getPartitionId());
+    }
 }

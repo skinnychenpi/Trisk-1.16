@@ -32,6 +32,8 @@ public class DefaultVertexParallelismInfo implements VertexParallelismInformatio
     private int maxParallelism;
     private final Function<Integer, Optional<String>> rescaleMaxValidator;
 
+    private int oldParallelism;
+
     /**
      * Create {@link VertexParallelismInformation} with max parallelism rescaling validation for a
      * vertex.
@@ -48,6 +50,7 @@ public class DefaultVertexParallelismInfo implements VertexParallelismInformatio
         this.parallelism = checkInitialParallelism(parallelism);
         this.maxParallelism = normalizeAndCheckMaxParallelism(maxParallelism);
         this.rescaleMaxValidator = Preconditions.checkNotNull(rescaleMaxValidator);
+        this.oldParallelism = parallelism;
     }
 
     private static int normalizeAndCheckMaxParallelism(int maxParallelism) {
@@ -99,6 +102,21 @@ public class DefaultVertexParallelismInfo implements VertexParallelismInformatio
                 this.parallelism == ExecutionConfig.PARALLELISM_DEFAULT,
                 "Vertex's parallelism can be set only if the vertex's parallelism was not decided yet.");
         this.parallelism = parallelism;
+    }
+
+    @Override
+    public void setParallelismForRescale(int newParallelism, int oldParallelism) {
+        checkParallelism(parallelism);
+        Preconditions.checkArgument(
+                parallelism <= maxParallelism,
+                "Vertex's parallelism should be smaller than or equal to vertex's max parallelism.");
+        this.oldParallelism = oldParallelism;
+        this.parallelism = newParallelism;
+    }
+
+    @Override
+    public int getOldParallelism() {
+        return oldParallelism;
     }
 
     @Override

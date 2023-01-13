@@ -36,6 +36,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.controlplane.PrimitiveOperation;
 import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
 import org.apache.flink.runtime.controlplane.abstraction.resource.AbstractSlot;
 import org.apache.flink.runtime.controlplane.abstraction.resource.FlinkSlot;
@@ -83,9 +84,11 @@ import org.apache.flink.runtime.registration.RegisteredRpcConnection;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.registration.RetryingRegistration;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
+import org.apache.flink.runtime.rescale.JobRescaleCoordinator;
 import org.apache.flink.runtime.rescale.reconfigure.AbstractCoordinator;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerSlotInformation;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.FencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -135,6 +138,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.TaskStateSnapshot.deserializeTaskStateSnapshot;
@@ -957,6 +961,20 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId>
             future.completeExceptionally(throwable);
         }
         return future;
+    }
+
+    @Override
+    public <M> void callOperations(
+            Function<PrimitiveOperation<M>, CompletableFuture<?>> operationCaller) {
+        validateRunsInMainThread();
+        JobRescaleCoordinator rescaleCoordinator = schedulerNG.getJobRescaleCoordinator();
+        operationCaller.apply(
+                (PrimitiveOperation<M>) rescaleCoordinator.getOperatorUpdateCoordinator());
+    }
+
+    @Override
+    public CompletableFuture<Collection<TaskManagerSlotInformation>> getAllSlots() {
+        return resourceManagerConnection.getTargetGateway().getAllSlots();
     }
 
     @Override

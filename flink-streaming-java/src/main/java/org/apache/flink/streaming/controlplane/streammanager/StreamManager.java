@@ -24,6 +24,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.controlplane.ExecutionPlanAndJobGraphUpdaterFactory;
 import org.apache.flink.runtime.controlplane.PrimitiveOperation;
 import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
@@ -1313,130 +1314,165 @@ public class StreamManager extends FencedRpcEndpoint<StreamManagerId>
 
     @Override
     public void execute(ControlPolicy controller, TriskWithLock executionPlanCopy) {
-        //        try {
-        //            trisk = executionPlanCopy;
-        //            trisk.setStateUpdatingFlag(controller);
-        //
-        //            Map<String, Map<Integer, List<Integer>>> transformations =
-        // trisk.getTransformations();
-        //
-        //            // operatorId to TaskIdList mapping, representing affected tasks.
-        //            boolean isScaleIn = false;
-        //            Map<Integer, List<Integer>> tasks = new HashMap<>();
-        //            Map<Integer, List<Integer>> updateStateTasks = new HashMap<>();
-        //            Map<Integer, List<Integer>> updateKeyMappingTasks = new HashMap<>();
-        //            Map<Integer, List<Integer>> reDeployingTasks = new HashMap<>();
-        //            Map<Integer, List<Integer>> updateFunctionTasks = new HashMap<>();
-        //            Map<Integer, List<SlotID>> targetSlotAllocation = null;
-        //            for (String operation : transformations.keySet()) {
-        //                Map<Integer, List<Integer>> transformation =
-        // transformations.get(operation);
-        //                switch (operation) {
-        //                    case "redistribute":
-        //                        // TODO: by far, we find the upstream operators of target operator
-        // to do remap, should update to only use "remapping"
-        //                        updateStateTasks = transformation;
-        //                        break;
-        //                    case "redeploying":
-        //                        targetSlotAllocation = trisk.getSlotAllocation();
-        //                        reDeployingTasks = transformation;
-        //                        break;
-        //                    case "remapping":
-        //                        updateKeyMappingTasks = transformation;
-        //                        break;
-        //                    case "updateExecutionLogic":
-        //                        updateFunctionTasks = transformation;
-        //                        break;
-        //                }
-        //                // tips: downstream tasks can be placed here when doing rescale
-        //                // 所有的downstream upstream 涉及到的operator以及其所管辖的task id都会被放入task这个map里面,
-        // 当然也包括target operator的未修改前的task id。
-        //                for (Integer operatorID : transformation.keySet()) {
-        //                    tasks.putIfAbsent(operatorID, transformation.get(operatorID));
-        //                }
-        //            }
-        //
-        //            JobMasterGateway jobMasterGateway =
-        // this.jobManagerRegistration.getJobManagerGateway();
-        //            log.info("++++++ start update");
-        //            Map<Integer, List<Integer>> finalUpdateKeyMappingTasks =
-        // updateKeyMappingTasks;
-        //            Map<Integer, List<Integer>> finalUpdateStateTasks = updateStateTasks;
-        //            Map<Integer, List<Integer>> finalDeployingTasks = reDeployingTasks;
-        //            Map<Integer, List<Integer>> finalUpdateFunctionTasks = updateFunctionTasks;
-        //            Map<Integer, List<SlotID>> finalSlotAllocation = targetSlotAllocation;
-        //            runAsync(() -> jobMasterGateway.callOperations(
-        //                    coordinator -> {
-        //                        // prepare and synchronize among affected tasks
-        //                        CompletableFuture<?> syncFuture =
-        // FutureUtils.completedVoidFuture()
-        //                                .thenCompose(o ->
-        // coordinator.prepareExecutionPlan(trisk.getExecutionPlan()))
-        //                                .thenCompose(o -> coordinator.synchronizeTasks(tasks, o));
-        //                        // run update asynchronously.
-        //                        List<CompletableFuture<?>> updateFutureList = new ArrayList<>();
-        //                        // TODO: by far, our method only support one operator, need to
-        // extend to support multiple operators.
-        //                        if (!finalUpdateKeyMappingTasks.isEmpty()) {
-        //                            updateFutureList.add(syncFuture.thenCompose(o ->
-        // coordinator.updateKeyMapping(finalUpdateKeyMappingTasks, o)));
-        //                        }
-        //                        if (!finalUpdateStateTasks.isEmpty()) {
-        //                            updateFutureList.add(syncFuture.thenCompose(o ->
-        // coordinator.updateState(finalUpdateStateTasks, o)));
-        //                        }
-        //                        if (!finalDeployingTasks.isEmpty()) {
-        //                            updateFutureList.add(syncFuture.thenCompose(o ->
-        // coordinator.updateTaskResources(finalDeployingTasks, finalSlotAllocation)));
-        //                        }
-        //                        if (!finalUpdateFunctionTasks.isEmpty()) {
-        //                            updateFutureList.add(syncFuture.thenCompose(o ->
-        // coordinator.updateFunction(finalUpdateFunctionTasks, o)));
-        //                        }
-        //
-        //                        // finish the reconfiguration after all asynchronous update
-        // completed
-        //                        CompletableFuture<Void> finishFuture =
-        // FutureUtils.completeAll(updateFutureList)
-        //                                .thenCompose(o -> coordinator.resumeTasks());
-        //                        if (finalSlotAllocation != null) {
-        //                            finishFuture = finishFuture
-        //                                    .thenCompose(o -> jobMasterGateway.getAllSlots())
-        //                                    .thenAccept(taskManagerSlots -> {
-        //                                        // compute
-        //                                        Map<String, List<AbstractSlot>> slotMap = new
-        // HashMap<>();
-        //                                        for (TaskManagerSlot taskManagerSlot :
-        // taskManagerSlots) {
-        //                                            AbstractSlot slot =
-        // FlinkSlot.fromTaskManagerSlot(taskManagerSlot);
-        //                                            List<AbstractSlot> slots =
-        // slotMap.computeIfAbsent(slot.getLocation(), k -> new ArrayList<>());
-        //                                            slots.add(slot);
-        //                                        }
-        //                                        trisk.getExecutionPlan().setSlotMap(slotMap);
-        //                                    });
-        //                        }
-        //                        return finishFuture.whenComplete((o, failure) -> {
-        //                            if (failure != null) {
-        //                                LOG.error("Reconfiguration failed: ", failure);
-        //                                failure.printStackTrace();
-        //                            }
-        //                            try {
-        //                                System.out.println("++++++ finished update");
-        //                                log.info("++++++ finished update");
-        //                                trisk.clearTransformations();
-        //                                trisk.notifyUpdateFinished(failure);
-        //                            } catch (Exception e) {
-        //                                e.printStackTrace();
-        //                            }
-        //                        });
-        //                    })
-        //            );
-        //        } catch (Exception e) {
-        //            LOG.error("Reconfiguration failed: ", e);
-        //            e.printStackTrace();
-        //        }
+        try {
+            trisk = executionPlanCopy;
+            trisk.setStateUpdatingFlag(controller);
+
+            Map<String, Map<Integer, List<Integer>>> transformations = trisk.getTransformations();
+
+            // operatorId to TaskIdList mapping, representing affected tasks.
+            boolean isScaleIn = false;
+            Map<Integer, List<Integer>> tasks = new HashMap<>();
+            Map<Integer, List<Integer>> updateStateTasks = new HashMap<>();
+            Map<Integer, List<Integer>> updateKeyMappingTasks = new HashMap<>();
+            Map<Integer, List<Integer>> reDeployingTasks = new HashMap<>();
+            Map<Integer, List<Integer>> updateFunctionTasks = new HashMap<>();
+            Map<Integer, List<SlotID>> targetSlotAllocation = null;
+            for (String operation : transformations.keySet()) {
+                Map<Integer, List<Integer>> transformation = transformations.get(operation);
+                switch (operation) {
+                    case "redistribute":
+                        // TODO: by far, we find the upstream operators of target operator to do
+                        // remap, should update to only use "remapping"
+                        updateStateTasks = transformation;
+                        break;
+                    case "redeploying":
+                        targetSlotAllocation = trisk.getSlotAllocation();
+                        reDeployingTasks = transformation;
+                        break;
+                    case "remapping":
+                        updateKeyMappingTasks = transformation;
+                        break;
+                    case "updateExecutionLogic":
+                        updateFunctionTasks = transformation;
+                        break;
+                }
+                // tips: downstream tasks can be placed here when doing rescale
+                // 所有的downstream upstream 涉及到的operator以及其所管辖的task id都会被放入task这个map里面, 当然也包括target
+                // operator的未修改前的task id。
+                for (Integer operatorID : transformation.keySet()) {
+                    tasks.putIfAbsent(operatorID, transformation.get(operatorID));
+                }
+            }
+
+            JobMasterGateway jobMasterGateway = this.jobManagerRegistration.getJobManagerGateway();
+            log.info("++++++ start update");
+            Map<Integer, List<Integer>> finalUpdateKeyMappingTasks = updateKeyMappingTasks;
+            Map<Integer, List<Integer>> finalUpdateStateTasks = updateStateTasks;
+            Map<Integer, List<Integer>> finalDeployingTasks = reDeployingTasks;
+            Map<Integer, List<Integer>> finalUpdateFunctionTasks = updateFunctionTasks;
+            Map<Integer, List<SlotID>> finalSlotAllocation = targetSlotAllocation;
+            runAsync(
+                    () ->
+                            jobMasterGateway.callOperations(
+                                    coordinator -> {
+                                        CompletableFuture<?> syncFuture =
+                                                FutureUtils.completedVoidFuture()
+                                                        .thenCompose(
+                                                                o ->
+                                                                        coordinator
+                                                                                .prepareExecutionPlan(
+                                                                                        trisk
+                                                                                                .getExecutionPlan()));
+
+                                        // prepare and synchronize among affected tasks
+                                        //                        CompletableFuture<?> syncFuture =
+                                        // FutureUtils.completedVoidFuture()
+                                        //                                .thenCompose(o ->
+                                        // coordinator.prepareExecutionPlan(trisk.getExecutionPlan()))
+                                        //                                .thenCompose(o ->
+                                        // coordinator.synchronizeTasks(tasks, o));
+                                        //                        // run update asynchronously.
+                                        //                        List<CompletableFuture<?>>
+                                        // updateFutureList = new ArrayList<>();
+                                        //                        // TODO: by far, our method only
+                                        // support one operator, need to extend to support multiple
+                                        // operators.
+                                        //                        if
+                                        // (!finalUpdateKeyMappingTasks.isEmpty()) {
+                                        //
+                                        // updateFutureList.add(syncFuture.thenCompose(o ->
+                                        // coordinator.updateKeyMapping(finalUpdateKeyMappingTasks,
+                                        // o)));
+                                        //                        }
+                                        //                        if
+                                        // (!finalUpdateStateTasks.isEmpty()) {
+                                        //
+                                        // updateFutureList.add(syncFuture.thenCompose(o ->
+                                        // coordinator.updateState(finalUpdateStateTasks, o)));
+                                        //                        }
+                                        //                        if
+                                        // (!finalDeployingTasks.isEmpty()) {
+                                        //
+                                        // updateFutureList.add(syncFuture.thenCompose(o ->
+                                        // coordinator.updateTaskResources(finalDeployingTasks,
+                                        // finalSlotAllocation)));
+                                        //                        }
+                                        //                        if
+                                        // (!finalUpdateFunctionTasks.isEmpty()) {
+                                        //
+                                        // updateFutureList.add(syncFuture.thenCompose(o ->
+                                        // coordinator.updateFunction(finalUpdateFunctionTasks,
+                                        // o)));
+                                        //                        }
+                                        //
+                                        //                        // finish the reconfiguration
+                                        // after all asynchronous update completed
+                                        //                        CompletableFuture<Void>
+                                        // finishFuture = FutureUtils.completeAll(updateFutureList)
+                                        //                                .thenCompose(o ->
+                                        // coordinator.resumeTasks());
+                                        //                        if (finalSlotAllocation != null) {
+                                        //                            finishFuture = finishFuture
+                                        //                                    .thenCompose(o ->
+                                        // jobMasterGateway.getAllSlots())
+                                        //
+                                        // .thenAccept(taskManagerSlots -> {
+                                        //                                        // compute
+                                        //                                        Map<String,
+                                        // List<AbstractSlot>> slotMap = new HashMap<>();
+                                        //                                        for
+                                        // (TaskManagerSlotInformation taskManagerSlot :
+                                        // taskManagerSlots) {
+                                        //                                            AbstractSlot
+                                        // slot = FlinkSlot.fromTaskManagerSlot(taskManagerSlot);
+                                        //
+                                        // List<AbstractSlot> slots =
+                                        // slotMap.computeIfAbsent(slot.getLocation(), k -> new
+                                        // ArrayList<>());
+                                        //
+                                        // slots.add(slot);
+                                        //                                        }
+                                        //
+                                        // trisk.getExecutionPlan().setSlotMap(slotMap);
+                                        //                                    });
+                                        //                        }
+                                        //                        return
+                                        // finishFuture.whenComplete((o, failure) -> {
+                                        //                            if (failure != null) {
+                                        //                                LOG.error("Reconfiguration
+                                        // failed: ", failure);
+                                        //                                failure.printStackTrace();
+                                        //                            }
+                                        //                            try {
+                                        //                                System.out.println("++++++
+                                        // finished update");
+                                        //                                log.info("++++++ finished
+                                        // update");
+                                        //
+                                        // trisk.clearTransformations();
+                                        //
+                                        // trisk.notifyUpdateFinished(failure);
+                                        //                            } catch (Exception e) {
+                                        //                                e.printStackTrace();
+                                        //                            }
+                                        //                        });
+                                        return syncFuture;
+                                    }));
+        } catch (Exception e) {
+            LOG.error("Reconfiguration failed: ", e);
+            e.printStackTrace();
+        }
     }
 
     // ------------------------------------------------------------------------

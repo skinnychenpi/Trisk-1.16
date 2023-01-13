@@ -69,7 +69,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface SchedulerNG extends GlobalFailureHandler, AutoCloseableAsync {
 
-    JobRescaleCoordinator getJobRescaleCoordinator();
+    default JobRescaleCoordinator getJobRescaleCoordinator() {
+        return null;
+    }
 
     void startScheduling();
 

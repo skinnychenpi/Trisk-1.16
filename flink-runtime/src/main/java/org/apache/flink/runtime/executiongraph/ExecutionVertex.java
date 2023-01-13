@@ -76,7 +76,7 @@ public class ExecutionVertex
     private final Time timeout;
 
     /** The name in the format "myTask (2/7)", cached to avoid frequent string concatenations. */
-    private final String taskNameWithSubtask;
+    private String taskNameWithSubtask;
 
     /** The current or latest execution attempt of this vertex's task. */
     Execution currentExecution; // this field must never be null
@@ -192,6 +192,28 @@ public class ExecutionVertex
     @Override
     public String getTaskNameWithSubtaskIndex() {
         return this.taskNameWithSubtask;
+    }
+
+    public void updateTaskNameWithSubtaskIndex() {
+        this.taskNameWithSubtask =
+                String.format(
+                        "%s (%d/%d)",
+                        jobVertex.getJobVertex().getName(),
+                        subTaskIndex + 1,
+                        jobVertex.getParallelism());
+    }
+
+    public void updateTaskIndex(int subTaskIndex) {
+        // save an old index for checkpoint and operator state operation
+
+        // For now it is a dummy method. Will be updated when dealing with scale in.
+        //        this.oldSubTaskIndex = this.subTaskIndex;
+        //        this.subTaskIndex = subTaskIndex;
+        //        this.executionVertexId.setSubtaskIndex(subTaskIndex);
+        //
+        //        for (IntermediateResultPartition irp : this.resultPartitions.values()) {
+        //            irp.updatePartitionNumber(subTaskIndex);
+        //        }
     }
 
     public int getTotalNumberOfParallelSubtasks() {
@@ -563,4 +585,50 @@ public class ExecutionVertex
     public ArchivedExecutionVertex archive() {
         return new ArchivedExecutionVertex(this);
     }
+
+    // --------------------------------------------------------------------------------------------
+    //  Trisk 1.16
+    // --------------------------------------------------------------------------------------------
+    //    public void connectEVWithIRP(int inputNumber, IntermediateResult source, JobEdge edge, int
+    // consumerNumber) {
+    //
+    //        final DistributionPattern pattern = edge.getDistributionPattern();
+    //        final IntermediateResultPartition[] sourcePartitions =
+    // source.getPartitions();//这里的sourcePartition已经是10了
+    //
+    //        ExecutionEdge[] edges; //利用jobEdges更新ExecutionEdge
+    //
+    //        switch (pattern) {
+    //            case POINTWISE:
+    //                edges = connectPointwise(sourcePartitions, inputNumber);
+    //                break;
+    //
+    //            case ALL_TO_ALL:
+    //                connectAllToAll(sourcePartitions); //target
+    // operator新建的8个ExecutionVertex都会执行到这里，然后每个EV都会新建一个（因为source的并行度是1）EE，EE会连接起上游的ERP和当下正在处理的EV
+    //                break;
+    //
+    //            default:
+    //                throw new RuntimeException("Unrecognized distribution pattern.");
+    //
+    //        }
+    //
+    //        inputEdges[inputNumber] = edges; //这一步就是明确当下的EV的上游是由哪些EE连接起来的，这些EE连接起了上游IRP和当下的EV
+    //
+    //        // add the consumers to the source
+    //        // for now (until the receiver initiated handshake is in place), we need to register
+    // the
+    //        // edges as the execution graph
+    //        for (ExecutionEdge ee : edges) {
+    //            ee.getSource().addConsumer(ee, consumerNumber);
+    //        }
+    //    }
+    //
+    //    private void connectAllToAll(IntermediateResultPartition[] sourcePartitions) {
+    //        for (int i = 0; i < sourcePartitions.length; i++) {
+    //            IntermediateResultPartition irp = sourcePartitions[i];
+    //            irp.addEdgeToExecutionVertex(this);//在这里新建了10次edges，并且把这些edges连接到target
+    // operator的下游的tasks节点上面
+    //        }
+    //    }
 }

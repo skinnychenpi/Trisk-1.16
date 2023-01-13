@@ -445,6 +445,11 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     }
 
     @Override
+    public Time getRpcTimeout() {
+        return rpcTimeout;
+    }
+
+    @Override
     public void enableCheckpointing(
             CheckpointCoordinatorConfiguration chkConfig,
             List<MasterTriggerRestoreHook<?>> masterHooks,
@@ -1680,5 +1685,24 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     public List<ShuffleDescriptor> getClusterPartitionShuffleDescriptors(
             IntermediateDataSetID intermediateDataSetID) {
         return partitionTracker.getClusterPartitionShuffleDescriptors(intermediateDataSetID);
+    }
+
+    // Trisk 1.16:
+
+    @Override
+    public int getExecutionHistorySizeLimit() {
+        return executionHistorySizeLimit;
+    }
+
+    public void updateNumOfTotalVertices() {
+        updatePartitionReleaseStrategy();
+    }
+
+    public void updatePartitionReleaseStrategy() {
+        // the topology assigning should happen before notifying new vertices to failoverStrategy
+        LOG.info("++++++update partition release strategy");
+        executionTopology = DefaultExecutionTopology.fromExecutionGraph(this);
+        partitionGroupReleaseStrategy =
+                partitionGroupReleaseStrategyFactory.createInstance(getSchedulingTopology());
     }
 }

@@ -205,6 +205,10 @@ public enum ResultPartitionType {
         return this == PIPELINED || this == PIPELINED_BOUNDED;
     }
 
+    public boolean isPipelinedBounded() {
+        return this == PIPELINED_BOUNDED;
+    }
+
     /**
      * Whether this partition uses a limited number of (network) buffers or not.
      *

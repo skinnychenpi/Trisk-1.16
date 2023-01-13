@@ -110,4 +110,16 @@ public class EdgeManager {
             IntermediateResultPartitionID resultPartitionId) {
         return getConsumedPartitionGroupsByIdInternal(resultPartitionId).size();
     }
+
+    public void resetConsumers(IntermediateResultPartitionID irpID) {
+        // Remove all the records stores in the above 3 hashmaps.
+        List<ConsumerVertexGroup> consumerExecutionVertices = partitionConsumers.get(irpID);
+        for (ConsumerVertexGroup group : consumerExecutionVertices) {
+            for (ExecutionVertexID evID : group) {
+                vertexConsumedPartitions.remove(evID);
+            }
+        }
+        partitionConsumers.remove(irpID);
+        consumedPartitionsById.remove(irpID);
+    }
 }

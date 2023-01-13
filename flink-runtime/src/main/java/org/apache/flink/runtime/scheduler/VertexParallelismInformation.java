@@ -60,4 +60,13 @@ public interface VertexParallelismInformation {
      * @return whether the max parallelism can be changed to the given value
      */
     boolean canRescaleMaxParallelism(int desiredMaxParallelism);
+
+    /**
+     * Set a given vertex's parallelism property for Trisk 1.16 rescale.
+     *
+     * @param parallelism the parallelism for the vertex
+     */
+    void setParallelismForRescale(int newParallelism, int oldParallelism);
+
+    int getOldParallelism();
 }

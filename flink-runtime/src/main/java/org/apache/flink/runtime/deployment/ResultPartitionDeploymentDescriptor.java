@@ -90,4 +90,9 @@ public class ResultPartitionDeploymentDescriptor implements Serializable {
                         + "ShuffleDescriptor: %s]",
                 partitionDescriptor, shuffleDescriptor);
     }
+
+    // Trisk Methods
+    public void setNumberOfSubpartitions(int numberOfSubpartitions) {
+        partitionDescriptor.setNumberOfSubpartitions(numberOfSubpartitions);
+    }
 }

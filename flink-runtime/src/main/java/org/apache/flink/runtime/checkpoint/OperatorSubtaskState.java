@@ -33,6 +33,8 @@ import org.apache.flink.runtime.state.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -154,6 +156,22 @@ public class OperatorSubtaskState implements CompositeStateHandle {
                 StateObjectCollection.empty(),
                 StateObjectCollection.empty(),
                 StateObjectCollection.empty(),
+                StateObjectCollection.empty(),
+                StateObjectCollection.empty(),
+                InflightDataRescalingDescriptor.NO_RESCALE,
+                InflightDataRescalingDescriptor.NO_RESCALE);
+    }
+
+    public OperatorSubtaskState(
+            @Nonnull StateObjectCollection<OperatorStateHandle> managedOperatorState,
+            @Nonnull StateObjectCollection<OperatorStateHandle> rawOperatorState,
+            @Nonnull StateObjectCollection<KeyedStateHandle> managedKeyedState,
+            @Nonnull StateObjectCollection<KeyedStateHandle> rawKeyedState) {
+        this(
+                managedOperatorState,
+                rawOperatorState,
+                managedKeyedState,
+                rawKeyedState,
                 StateObjectCollection.empty(),
                 StateObjectCollection.empty(),
                 InflightDataRescalingDescriptor.NO_RESCALE,

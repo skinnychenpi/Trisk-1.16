@@ -39,6 +39,7 @@ import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 import org.apache.flink.runtime.persistence.PossibleInconsistentStateException;
+import org.apache.flink.runtime.rescale.RescalepointAcknowledgeListener;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
@@ -224,6 +225,8 @@ public class CheckpointCoordinator {
     private boolean baseLocationsForCheckpointInitialized = false;
 
     private boolean forceFullSnapshot;
+    // ----------------------------------Trisk Fields----------------------------------------------
+    private RescalepointAcknowledgeListener rescalepointAcknowledgeListener;
 
     // --------------------------------------------------------------------------------------------
 
@@ -553,6 +556,13 @@ public class CheckpointCoordinator {
                                             // (in HA mode) and may block for a while.
                                             long checkpointID =
                                                     checkpointIdCounter.getAndIncrement();
+
+                                            // set checkpointId for rescale ack listener
+                                            if (request.isRescalepoint()) {
+                                                rescalepointAcknowledgeListener.setCheckpointId(
+                                                        checkpointID);
+                                            }
+
                                             return new Tuple2<>(plan, checkpointID);
                                         } catch (Throwable e) {
                                             throw new CompletionException(e);
@@ -1152,6 +1162,11 @@ public class CheckpointCoordinator {
                                 message.getTaskExecutionId(),
                                 message.getJob(),
                                 taskManagerLocationInfo);
+
+                        if (rescalepointAcknowledgeListener != null) {
+                            rescalepointAcknowledgeListener.onReceiveRescalepointAcknowledge(
+                                    message.getTaskExecutionId(), checkpoint);
+                        }
 
                         if (checkpoint.isFullyAcknowledged()) {
                             completePendingCheckpoint(checkpoint);
@@ -2215,6 +2230,10 @@ public class CheckpointCoordinator {
         public boolean isForce() {
             return props.forceCheckpoint();
         }
+
+        public boolean isRescalepoint() {
+            return props.isRescalePoint();
+        }
     }
 
     private enum OperatorCoordinatorRestoreBehavior {
@@ -2268,5 +2287,28 @@ public class CheckpointCoordinator {
     @Nullable
     private PendingCheckpointStats getStatsCallback(PendingCheckpoint pendingCheckpoint) {
         return statsTracker.getPendingCheckpointStats(pendingCheckpoint.getCheckpointID());
+    }
+
+    // ------------------------------------------------------------------------
+    //  Trisk Methods
+    // ------------------------------------------------------------------------
+    public void setRescalepointAcknowledgeListener(RescalepointAcknowledgeListener listener) {
+        if (listener != null) {
+            this.rescalepointAcknowledgeListener = listener;
+        }
+    }
+
+    public CompletableFuture<CompletedCheckpoint> triggerRescalePoint(long timestamp) {
+        CheckpointProperties props = CheckpointProperties.forRescalePoint();
+
+        final CompletableFuture<CompletedCheckpoint> resultFuture = new CompletableFuture<>();
+        try {
+            return triggerCheckpoint(props, null, false);
+        } catch (Throwable throwable) {
+            LOG.error("++++++ Error occurs at triggering rescale point.");
+            resultFuture.completeExceptionally(throwable);
+        }
+        // return the generated checkpointID
+        return null;
     }
 }

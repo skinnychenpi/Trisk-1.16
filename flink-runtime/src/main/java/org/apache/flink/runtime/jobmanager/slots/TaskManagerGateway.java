@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.rescale.RescaleOptions;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorOperatorEventGateway;
 import org.apache.flink.util.SerializedValue;
@@ -54,6 +55,19 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
      * @return Future acknowledge of the successful operation
      */
     CompletableFuture<Acknowledge> submitTask(TaskDeploymentDescriptor tdd, Time timeout);
+
+    default CompletableFuture<Acknowledge> rescaleTask(
+            ExecutionAttemptID executionAttemptID,
+            TaskDeploymentDescriptor tdd,
+            RescaleOptions rescaleOptions,
+            Time timeout) {
+        return null;
+    }
+
+    default CompletableFuture<Acknowledge> scheduleSync(
+            ExecutionAttemptID executionAttemptID, int syncFlag, @RpcTimeout Time timeout) {
+        return null;
+    }
 
     /**
      * Cancel the given task.

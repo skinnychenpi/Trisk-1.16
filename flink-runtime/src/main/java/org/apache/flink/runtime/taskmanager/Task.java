@@ -66,12 +66,18 @@ import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.jobgraph.tasks.TaskInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.rescale.RescaleID;
+import org.apache.flink.runtime.rescale.RescaleOptions;
+import org.apache.flink.runtime.rescale.TaskRescaleManager;
+import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskexecutor.KvStateService;
@@ -290,6 +296,18 @@ public class Task
      */
     private UserCodeClassLoader userCodeClassLoader;
 
+    // ----------------------------- Trisk Fields----------------------------------
+
+    private TaskRescaleManager taskRescaleManager = null;
+
+    /** Used to manager this task's operator, for example, the logic function inside the operator */
+    private TaskOperatorManager taskOperatorManager;
+
+    /** The begin KeyGroupRange used to initialize streamtask */
+    @Nullable private KeyGroupRange keyGroupRange;
+
+    private CompletableFuture<Acknowledge> runningFuture = new CompletableFuture<>();
+
     /**
      * <b>IMPORTANT:</b> This constructor may not start any work that would need to be undone in the
      * case of a failing task deployment.
@@ -319,7 +337,8 @@ public class Task
             TaskManagerRuntimeInfo taskManagerConfig,
             @Nonnull TaskMetricGroup metricGroup,
             PartitionProducerStateChecker partitionProducerStateChecker,
-            Executor executor) {
+            Executor executor,
+            @Nullable KeyGroupRange keyGroupRange) {
 
         Preconditions.checkNotNull(jobInformation);
         Preconditions.checkNotNull(taskInformation);
@@ -413,12 +432,28 @@ public class Task
             ((NettyShuffleEnvironment) shuffleEnvironment)
                     .registerLegacyNetworkMetrics(
                             metrics.getIOMetricGroup(), resultPartitionWriters, gates);
+
+            taskRescaleManager =
+                    new TaskRescaleManager(
+                            jobId,
+                            executionId,
+                            taskNameWithSubtaskAndId,
+                            this,
+                            (NettyShuffleEnvironment) shuffleEnvironment,
+                            taskEventDispatcher,
+                            ioManager,
+                            metrics,
+                            taskShuffleContext);
         }
 
         invokableHasBeenCanceled = new AtomicBoolean(false);
 
         // finally, create the executing thread, but do not start it
         executingThread = new Thread(TASK_THREADS_GROUP, this, taskNameWithSubtask);
+
+        this.keyGroupRange = keyGroupRange;
+
+        taskOperatorManager = new TaskOperatorManager(this);
     }
 
     // ------------------------------------------------------------------------
@@ -698,7 +733,10 @@ public class Task
                             taskManagerConfig,
                             metrics,
                             this,
-                            externalResourceInfoProvider);
+                            externalResourceInfoProvider,
+                            taskRescaleManager,
+                            taskOperatorManager,
+                            keyGroupRange);
 
             // Make sure the user code classloader is accessible thread-locally.
             // We are setting the correct context class loader before instantiating the invokable
@@ -1592,6 +1630,34 @@ public class Task
             throw e.getTargetException();
         } catch (Exception e) {
             throw new FlinkException("Could not instantiate the task's invokable class.", e);
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    //  Trisk Methods
+    // ------------------------------------------------------------------------
+    public void updateTaskConfiguration(TaskInformation newTaskInfo) {
+        this.taskConfiguration.addAll(newTaskInfo.getTaskConfiguration());
+    }
+
+    public void prepareRescalingComponent(
+            RescaleID rescaleId,
+            RescaleOptions rescaleOptions,
+            Collection<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
+            Collection<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors) {
+        // TODO: Currently comment, will be developed later.
+        //        taskRescaleManager.prepareRescaleMeta(
+        //                rescaleId,
+        //                rescaleOptions,
+        //                resultPartitionDeploymentDescriptors,
+        //                inputGateDeploymentDescriptors);
+    }
+
+    public void prepareSync(int syncFlag) {
+        try {
+            taskOperatorManager.setSyncRequestFlag(syncFlag);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

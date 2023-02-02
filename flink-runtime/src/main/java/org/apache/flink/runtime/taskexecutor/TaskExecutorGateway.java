@@ -37,6 +37,7 @@ import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.rescale.RescaleOptions;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
@@ -285,4 +286,18 @@ public interface TaskExecutorGateway
      * @return the {@link ThreadDumpInfo} for this TaskManager.
      */
     CompletableFuture<ThreadDumpInfo> requestThreadDump(@RpcTimeout Time timeout);
+
+    default CompletableFuture<Acknowledge> rescaleTask(
+            ExecutionAttemptID executionAttemptID,
+            TaskDeploymentDescriptor tdd,
+            JobMasterId jobMasterId,
+            RescaleOptions rescaleOptions,
+            @RpcTimeout Time timeout) {
+        return null;
+    }
+
+    default CompletableFuture<Acknowledge> scheduleSync(
+            ExecutionAttemptID executionAttemptID, int syncFlag, @RpcTimeout Time timeout) {
+        return null;
+    }
 }

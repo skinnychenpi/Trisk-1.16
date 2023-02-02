@@ -1281,7 +1281,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                                 checkpointMetrics,
                                 operatorChain,
                                 finishedOperators,
-                                this::isRunning);
+                                this::isRunning,
+                                getEnvironment().getTaskOperatorManager());
                     });
 
             return true;

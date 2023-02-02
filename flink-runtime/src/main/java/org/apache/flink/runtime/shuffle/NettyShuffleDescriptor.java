@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.rescale.RescaleID;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
@@ -59,6 +60,11 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
     @Override
     public Optional<ResourceID> storesLocalResourcesOn() {
         return Optional.of(producerLocation);
+    }
+
+    @Override
+    public void updateResultPartitionId(RescaleID rescaleId) {
+        resultPartitionID.setRescaleId(rescaleId);
     }
 
     public boolean isLocalTo(ResourceID consumerLocation) {

@@ -42,9 +42,15 @@ import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.rescale.TaskRescaleManager;
+import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 import org.apache.flink.runtime.state.CheckpointStorageAccess;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
+import org.apache.flink.runtime.util.profiling.FSMetricsManager;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
+import org.apache.flink.runtime.util.profiling.NoopMetricsManager;
 import org.apache.flink.util.UserCodeClassLoader;
 
 import javax.annotation.Nullable;
@@ -104,6 +110,15 @@ public class RuntimeEnvironment implements Environment {
 
     @Nullable private CheckpointStorageAccess checkpointStorageAccess;
 
+    // ---------------------------Trisk Fields---------------------------------
+    public final TaskRescaleManager taskRescaleManager;
+
+    public final TaskOperatorManager taskOperatorManager;
+
+    public final KeyGroupRange keyGroupRange;
+
+    private final MetricsManager metricsManager;
+
     // ------------------------------------------------------------------------
 
     public RuntimeEnvironment(
@@ -132,7 +147,10 @@ public class RuntimeEnvironment implements Environment {
             TaskManagerRuntimeInfo taskManagerInfo,
             TaskMetricGroup metrics,
             Task containingTask,
-            ExternalResourceInfoProvider externalResourceInfoProvider) {
+            ExternalResourceInfoProvider externalResourceInfoProvider,
+            TaskRescaleManager taskRescaleManager,
+            TaskOperatorManager taskOperatorManager,
+            KeyGroupRange keyGroupRange) {
 
         this.jobId = checkNotNull(jobId);
         this.jobVertexId = checkNotNull(jobVertexId);
@@ -160,6 +178,27 @@ public class RuntimeEnvironment implements Environment {
         this.containingTask = containingTask;
         this.metrics = metrics;
         this.externalResourceInfoProvider = checkNotNull(externalResourceInfoProvider);
+        this.taskRescaleManager = checkNotNull(taskRescaleManager);
+        this.taskOperatorManager = checkNotNull(taskOperatorManager);
+        this.keyGroupRange = keyGroupRange;
+
+        if (taskInfo.getTaskNameWithSubtasks().contains("Sink")) {
+            this.metricsManager =
+                    new NoopMetricsManager(
+                            taskInfo.getTaskNameWithSubtasks(),
+                            this.jobVertexId,
+                            jobConfiguration,
+                            taskInfo.getIdInModel(),
+                            taskInfo.getMaxNumberOfParallelSubtasks());
+        } else {
+            this.metricsManager =
+                    new FSMetricsManager(
+                            taskInfo.getTaskNameWithSubtasks(),
+                            this.jobVertexId,
+                            jobConfiguration,
+                            taskInfo.getIdInModel(),
+                            taskInfo.getMaxNumberOfParallelSubtasks());
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -287,6 +326,11 @@ public class RuntimeEnvironment implements Environment {
     @Override
     public ExternalResourceInfoProvider getExternalResourceInfoProvider() {
         return externalResourceInfoProvider;
+    }
+
+    @Override
+    public TaskOperatorManager getTaskOperatorManager() {
+        return taskOperatorManager;
     }
 
     @Override

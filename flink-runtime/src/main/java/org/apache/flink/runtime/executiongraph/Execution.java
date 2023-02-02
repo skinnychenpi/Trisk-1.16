@@ -44,17 +44,21 @@ import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
+import org.apache.flink.runtime.rescale.RescaleID;
+import org.apache.flink.runtime.rescale.RescaleOptions;
 import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.PartitionDescriptor;
 import org.apache.flink.runtime.shuffle.ProducerDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorOperatorEventGateway;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.OptionalFailure;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -72,6 +76,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
@@ -1577,5 +1582,171 @@ public class Execution
         vertex.getExecutionGraphAccessor()
                 .getJobMasterMainThreadExecutor()
                 .assertRunningInMainThread();
+    }
+    // ------------------------------------------------------------------------
+    //  Trisk Methods
+    // ------------------------------------------------------------------------
+    public CompletableFuture<Void> scheduleForInterTaskSync(int syncFlag) {
+
+        assertRunningInJobMasterMainThread();
+
+        final LogicalSlot slot = assignedResource;
+        checkNotNull(slot, "Try to rescale a vertex which isn't assigned slot.");
+
+        if (this.state != RUNNING && this.state != DEPLOYING) {
+            throw new IllegalStateException(
+                    "The vertex must be in RUNNING or DEPLOYING state to be send sync request. Found state "
+                            + this.state);
+        }
+        try {
+            LOG.info(
+                    String.format(
+                            "Update operator in this execution attempt: %s (attempt #%d) to %s",
+                            vertex.getTaskNameWithSubtaskIndex(),
+                            attemptId.getAttemptNumber(),
+                            getAssignedResourceLocation()));
+
+            final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
+
+            final ComponentMainThreadExecutor jobMasterMainThreadExecutor =
+                    vertex.getExecutionGraphAccessor().getJobMasterMainThreadExecutor();
+
+            return CompletableFuture.supplyAsync(
+                            () -> taskManagerGateway.scheduleSync(attemptId, syncFlag, rpcTimeout),
+                            executor)
+                    .thenCompose(Function.identity())
+                    .handleAsync(
+                            (ack, failure) -> {
+                                if (failure != null) {
+                                    LOG.error("++++++ scheduleOperatorUpdate err: ", failure);
+                                    throw new CompletionException(failure);
+                                }
+                                return null;
+                            },
+                            jobMasterMainThreadExecutor);
+        } catch (Throwable t) {
+            markFailed(t);
+            //            if (isLegacyScheduling()) {
+            //                ExceptionUtils.rethrow(t);
+            //            }
+        }
+        return FutureUtils.completedVoidFuture();
+    }
+
+    public void updateProducedPartitions(RescaleID rescaleId) {
+        // update produced partitions for sync.
+        getVertex().updateRescaleId(rescaleId);
+        for (Map.Entry<IntermediateResultPartitionID, ResultPartitionDeploymentDescriptor> entry :
+                producedPartitions.entrySet()) {
+            IntermediateResultPartitionID key = entry.getKey();
+            ResultPartitionDeploymentDescriptor resultPartitionDeploymentDescriptor =
+                    entry.getValue();
+            // update shuffle descriptor
+            resultPartitionDeploymentDescriptor
+                    .getShuffleDescriptor()
+                    .updateResultPartitionId(vertex.getRescaleId());
+            // update partition descriptor
+            IntermediateResultPartition intermediateResultPartition =
+                    vertex.getProducedPartitions().get(key);
+            resultPartitionDeploymentDescriptor.setNumberOfSubpartitions(
+                    intermediateResultPartition.getConsumerVertexGroups().get(0).size());
+            // TODO: Question: Why is there a get(0)? Is it possible to have two job vertices that
+            // share different parallelism? In this case then get(0) only consider the first job
+            // vertex.
+        }
+    }
+
+    public CompletableFuture<Void> scheduleRescale(
+            RescaleID rescaleId,
+            RescaleOptions rescaleOptions,
+            @Nullable KeyGroupRange keyGroupRange)
+            throws ExecutionGraphException {
+
+        //		System.out.println(getVertex() + " : rescale id: " + getVertex().getRescaleId() + " ,
+        // option: " + rescaleOptions);
+        //		getVertex().updateRescaleId(rescaleId);
+        //		System.out.println(getVertex() + " : updated rescale id: " +
+        // getVertex().getRescaleId());
+        vertex.assignKeyGroupRange(keyGroupRange);
+
+        assertRunningInJobMasterMainThread();
+
+        final LogicalSlot slot = assignedResource;
+        checkNotNull(slot, "Try to rescale a vertex which isn't assigned slot.");
+
+        if (this.state != RUNNING) {
+            throw new IllegalStateException(
+                    "The vertex must be in RUNNING state to be rescaled. Found state "
+                            + this.state);
+        }
+
+        try {
+            if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        String.format(
+                                "ScheduleRescaling %s rescale option: %s",
+                                vertex.getTaskNameWithSubtaskIndex(), rescaleOptions));
+            }
+
+            if (rescaleOptions.isRepartition()) {
+                Preconditions.checkNotNull(taskRestore, "task restore should not be null");
+            }
+
+            // if it is not a repartition, do not need to apply taskRestore.
+            JobManagerTaskRestore sendTaskRestore =
+                    rescaleOptions.isRepartition() ? taskRestore : null;
+            final TaskDeploymentDescriptor deployment =
+                    TaskDeploymentDescriptorFactory.fromExecution(this)
+                            .createDeploymentDescriptor(
+                                    slot.getAllocationId(),
+                                    sendTaskRestore,
+                                    producedPartitions.values());
+            // null taskRestore to let it be GC'ed
+            // only after repartition should the state being GC'ed
+            if (rescaleOptions.isRepartition()) {
+                taskRestore = null;
+            }
+
+            final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
+
+            final ComponentMainThreadExecutor jobMasterMainThreadExecutor =
+                    vertex.getExecutionGraphAccessor().getJobMasterMainThreadExecutor();
+
+            return CompletableFuture.supplyAsync(
+                            () ->
+                                    taskManagerGateway.rescaleTask(
+                                            attemptId, deployment, rescaleOptions, rpcTimeout),
+                            executor)
+                    .thenCompose(Function.identity())
+                    .handleAsync(
+                            (ack, failure) -> {
+                                if (failure != null) {
+                                    LOG.error("++++++ scheduleRescale err: ", failure);
+                                    throw new CompletionException(failure);
+                                }
+                                return null;
+                            },
+                            jobMasterMainThreadExecutor);
+
+        } catch (Throwable t) {
+            markFailed(t);
+
+            //            if (isLegacyScheduling()) {
+            //                ExceptionUtils.rethrow(t);
+            //            }
+        }
+        return null;
+    }
+
+    public CompletableFuture<Void> scheduleRescale(
+            RescaleID rescaleId,
+            RescaleOptions rescaleOptions,
+            @Nullable KeyGroupRange keyGroupRange,
+            int idInModel)
+            throws ExecutionGraphException {
+
+        getVertex().setIdInModel(idInModel);
+
+        return scheduleRescale(rescaleId, rescaleOptions, keyGroupRange);
     }
 }

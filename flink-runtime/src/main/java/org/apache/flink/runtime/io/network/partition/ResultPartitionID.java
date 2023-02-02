@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.IntermediateResultPartition;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.rescale.RescaleID;
 
 import java.io.Serializable;
 
@@ -43,15 +44,25 @@ public final class ResultPartitionID implements Serializable {
 
     private final ExecutionAttemptID producerId;
 
+    private RescaleID rescaleId;
+
     @VisibleForTesting
     public ResultPartitionID() {
-        this(new IntermediateResultPartitionID(), randomId());
+        this(new IntermediateResultPartitionID(), randomId(), RescaleID.DEFAULT);
     }
 
     public ResultPartitionID(
             IntermediateResultPartitionID partitionId, ExecutionAttemptID producerId) {
+        this(partitionId, producerId, RescaleID.DEFAULT);
+    }
+
+    public ResultPartitionID(
+            IntermediateResultPartitionID partitionId,
+            ExecutionAttemptID producerId,
+            RescaleID rescaleId) {
         this.partitionId = checkNotNull(partitionId);
         this.producerId = checkNotNull(producerId);
+        this.rescaleId = checkNotNull(rescaleId);
     }
 
     public IntermediateResultPartitionID getPartitionId() {
@@ -67,7 +78,9 @@ public final class ResultPartitionID implements Serializable {
         if (obj != null && obj.getClass() == ResultPartitionID.class) {
             ResultPartitionID o = (ResultPartitionID) obj;
 
-            return o.getPartitionId().equals(partitionId) && o.getProducerId().equals(producerId);
+            return o.getPartitionId().equals(partitionId)
+                    && o.getProducerId().equals(producerId)
+                    && o.getRescaleId().equals(rescaleId);
         }
 
         return false;
@@ -75,11 +88,19 @@ public final class ResultPartitionID implements Serializable {
 
     @Override
     public int hashCode() {
-        return partitionId.hashCode() ^ producerId.hashCode();
+        return partitionId.hashCode() ^ producerId.hashCode() ^ rescaleId.hashCode();
     }
 
     @Override
     public String toString() {
-        return partitionId.toString() + "@" + producerId.toString();
+        return partitionId.toString() + "@" + producerId.toString() + "@" + rescaleId.toString();
+    }
+
+    public void setRescaleId(RescaleID rescaleId) {
+        this.rescaleId = rescaleId;
+    }
+
+    public RescaleID getRescaleId() {
+        return rescaleId;
     }
 }

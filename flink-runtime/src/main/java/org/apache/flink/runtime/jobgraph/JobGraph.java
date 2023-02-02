@@ -77,7 +77,7 @@ public class JobGraph implements Serializable {
             new LinkedHashMap<JobVertexID, JobVertex>();
 
     /** The job configuration attached to this job. */
-    private final Configuration jobConfiguration = new Configuration();
+    private Configuration jobConfiguration = new Configuration();
 
     /** ID of this job. May be set if specific job id is desired (e.g. session management) */
     private JobID jobID;
@@ -204,6 +204,15 @@ public class JobGraph implements Serializable {
      */
     public Configuration getJobConfiguration() {
         return this.jobConfiguration;
+    }
+
+    /**
+     * get the job information in the flink-conf.yaml.
+     *
+     * @return null.
+     */
+    public void setJobConfiguration(Configuration config) {
+        this.jobConfiguration = config;
     }
 
     /**

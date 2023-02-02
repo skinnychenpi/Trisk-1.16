@@ -25,6 +25,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
+import org.apache.flink.runtime.checkpoint.RescalepointType;
 import org.apache.flink.runtime.checkpoint.SavepointType;
 import org.apache.flink.runtime.checkpoint.SnapshotType;
 import org.apache.flink.runtime.event.AbstractEvent;
@@ -84,6 +85,9 @@ public class EventSerializer {
     private static final byte CHECKPOINT_TYPE_SAVEPOINT_TERMINATE = 3;
 
     private static final byte CHECKPOINT_TYPE_FULL_CHECKPOINT = 4;
+    private static final byte CHECKPOINT_TYPE_RESCALEPOINT = 5;
+    private static final byte CHECKPOINT_TYPE_RESCALEPOINT_SUSPEND = 6;
+    private static final byte CHECKPOINT_TYPE_RESCALEPOINT_TERMINATE = 7;
 
     private static final byte SAVEPOINT_FORMAT_CANONICAL = 0;
     private static final byte SAVEPOINT_FORMAT_NATIVE = 1;
@@ -244,6 +248,8 @@ public class EventSerializer {
             buf.put(CHECKPOINT_TYPE_CHECKPOINT);
         } else if (snapshotType.equals(CheckpointType.FULL_CHECKPOINT)) {
             buf.put(CHECKPOINT_TYPE_FULL_CHECKPOINT);
+        } else if (snapshotType.isRescalepoint()) {
+            encodeRescalepointType(snapshotType, buf);
         } else {
             throw new IOException("Unknown checkpoint type: " + snapshotType);
         }
@@ -289,6 +295,34 @@ public class EventSerializer {
         }
     }
 
+    private static void encodeRescalepointType(SnapshotType snapshotType, ByteBuffer buf)
+            throws IOException {
+        RescalepointType rescalepointType = (RescalepointType) snapshotType;
+        switch (rescalepointType.getPostCheckpointAction()) {
+            case NONE:
+                buf.put(CHECKPOINT_TYPE_RESCALEPOINT);
+                break;
+            case SUSPEND:
+                buf.put(CHECKPOINT_TYPE_RESCALEPOINT_SUSPEND);
+                break;
+            case TERMINATE:
+                buf.put(CHECKPOINT_TYPE_RESCALEPOINT_TERMINATE);
+                break;
+            default:
+                throw new IOException("Unknown savepoint type: " + snapshotType);
+        }
+        switch (rescalepointType.getFormatType()) {
+            case CANONICAL:
+                buf.put(SAVEPOINT_FORMAT_CANONICAL);
+                break;
+            case NATIVE:
+                buf.put(SAVEPOINT_FORMAT_NATIVE);
+                break;
+            default:
+                throw new IOException("Unknown savepoint format type: " + snapshotType);
+        }
+    }
+
     private static CheckpointBarrier deserializeCheckpointBarrier(ByteBuffer buffer)
             throws IOException {
         final long id = buffer.getLong();
@@ -301,6 +335,10 @@ public class EventSerializer {
             snapshotType = CheckpointType.CHECKPOINT;
         } else if (checkpointTypeCode == CHECKPOINT_TYPE_FULL_CHECKPOINT) {
             snapshotType = CheckpointType.FULL_CHECKPOINT;
+        } else if (checkpointTypeCode == CHECKPOINT_TYPE_RESCALEPOINT
+                || checkpointTypeCode == CHECKPOINT_TYPE_RESCALEPOINT_SUSPEND
+                || checkpointTypeCode == CHECKPOINT_TYPE_RESCALEPOINT_TERMINATE) {
+            snapshotType = decodeRescalepointType(checkpointTypeCode, buffer);
         } else if (checkpointTypeCode == CHECKPOINT_TYPE_SAVEPOINT
                 || checkpointTypeCode == CHECKPOINT_TYPE_SAVEPOINT_SUSPEND
                 || checkpointTypeCode == CHECKPOINT_TYPE_SAVEPOINT_TERMINATE) {
@@ -345,6 +383,28 @@ public class EventSerializer {
             return SavepointType.suspend(formatType);
         } else if (checkpointTypeCode == CHECKPOINT_TYPE_SAVEPOINT_TERMINATE) {
             return SavepointType.terminate(formatType);
+        } else {
+            throw new IOException("Unknown savepoint type code: " + checkpointTypeCode);
+        }
+    }
+
+    private static RescalepointType decodeRescalepointType(
+            byte checkpointTypeCode, ByteBuffer buffer) throws IOException {
+        final byte formatTypeCode = buffer.get();
+        final SavepointFormatType formatType;
+        if (formatTypeCode == SAVEPOINT_FORMAT_CANONICAL) {
+            formatType = SavepointFormatType.CANONICAL;
+        } else if (formatTypeCode == SAVEPOINT_FORMAT_NATIVE) {
+            formatType = SavepointFormatType.NATIVE;
+        } else {
+            throw new IOException("Unknown savepoint format type code: " + formatTypeCode);
+        }
+        if (checkpointTypeCode == CHECKPOINT_TYPE_RESCALEPOINT) {
+            return RescalepointType.rescalepoint(formatType);
+        } else if (checkpointTypeCode == CHECKPOINT_TYPE_RESCALEPOINT_SUSPEND) {
+            return RescalepointType.suspend(formatType);
+        } else if (checkpointTypeCode == CHECKPOINT_TYPE_RESCALEPOINT_TERMINATE) {
+            return RescalepointType.terminate(formatType);
         } else {
             throw new IOException("Unknown savepoint type code: " + checkpointTypeCode);
         }

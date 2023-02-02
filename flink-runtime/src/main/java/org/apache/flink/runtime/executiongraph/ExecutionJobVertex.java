@@ -343,6 +343,10 @@ public class ExecutionJobVertex
         return parallelismInfo.getParallelism();
     }
 
+    public int getOldParallelism() {
+        return parallelismInfo.getOldParallelism();
+    }
+
     @Override
     public int getMaxParallelism() {
         return parallelismInfo.getMaxParallelism();
@@ -652,10 +656,6 @@ public class ExecutionJobVertex
     }
 
     public void syncOldConfigInfo() {
-        //            this.oldParallelism = this.parallelism;
-        //            for (ExecutionVertex vertex: taskVertices) {
-        //                vertex.syncOldParallelSubtaskIndex();
-        //            }
     }
 
     public void resetProducedDataSets() {

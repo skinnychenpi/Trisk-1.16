@@ -467,7 +467,9 @@ public class PendingCheckpoint implements Checkpoint {
             operatorState =
                     new OperatorState(
                             operatorID.getGeneratedOperatorID(),
-                            vertex.getTotalNumberOfParallelSubtasks(),
+                            props.isRescalePoint()
+                                    ? vertex.getOldTotalNumberOfParallelSubtasks()
+                                    : vertex.getTotalNumberOfParallelSubtasks(),
                             vertex.getMaxParallelism());
             operatorStates.put(operatorID.getGeneratedOperatorID(), operatorState);
         }

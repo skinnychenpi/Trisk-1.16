@@ -31,8 +31,10 @@ import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
+import org.apache.flink.runtime.rescale.RescaleID;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.Preconditions;
 
@@ -90,7 +92,14 @@ public class ExecutionVertex
 
     @Nullable private AllocationID lastAssignedAllocationID;
 
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------Trisk Fields------------------------------------------
+    private volatile RescaleID rescaleId;
+
+    private volatile KeyGroupRange keyGroupRange;
+
+    private volatile int idInModel;
+
+    // ---------------------------------------------------------------------------------------------
 
     /**
      * Creates an ExecutionVertex.
@@ -218,6 +227,10 @@ public class ExecutionVertex
 
     public int getTotalNumberOfParallelSubtasks() {
         return this.jobVertex.getParallelism();
+    }
+
+    public int getOldTotalNumberOfParallelSubtasks() {
+        return this.jobVertex.getOldParallelism();
     }
 
     public int getMaxParallelism() {
@@ -631,4 +644,32 @@ public class ExecutionVertex
     // operator的下游的tasks节点上面
     //        }
     //    }
+
+    // ---------------------------------------Trisk
+    // Methods------------------------------------------
+    public void assignKeyGroupRange(KeyGroupRange keyGroupRange) {
+        this.keyGroupRange = keyGroupRange;
+    }
+
+    public KeyGroupRange getKeyGroupRange() {
+        return keyGroupRange;
+    }
+
+    public void setIdInModel(int idInModel) {
+        this.idInModel = idInModel;
+    }
+
+    public int getIdInModel() {
+        return idInModel;
+    }
+
+    public RescaleID getRescaleId() {
+        return rescaleId;
+    }
+
+    public void updateRescaleId(RescaleID rescaleId) {
+        this.rescaleId = rescaleId;
+    }
+    // ---------------------------------------Trisk
+    // Methods------------------------------------------
 }

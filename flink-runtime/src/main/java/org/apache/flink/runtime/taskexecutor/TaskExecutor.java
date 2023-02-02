@@ -84,6 +84,7 @@ import org.apache.flink.runtime.query.KvStateClientProxy;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.query.KvStateServer;
 import org.apache.flink.runtime.registration.RegistrationConnectionListener;
+import org.apache.flink.runtime.rescale.RescaleOptions;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
@@ -93,6 +94,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcServiceUtils;
+import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
@@ -753,7 +755,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                             taskManagerConfiguration,
                             taskMetricGroup,
                             partitionStateChecker,
-                            getRpcService().getScheduledExecutor());
+                            getRpcService().getScheduledExecutor(),
+                            tdd.getKeyGroupRange());
 
             taskMetricGroup.gauge(MetricNames.IS_BACK_PRESSURED, task::isBackPressured);
 
@@ -2212,6 +2215,109 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     @VisibleForTesting
     HeartbeatManager<Void, TaskExecutorHeartbeatPayload> getResourceManagerHeartbeatManager() {
         return resourceManagerHeartbeatManager;
+    }
+
+    // ------------------------------------------------------------------------
+    //  Trisk Methods
+    // ------------------------------------------------------------------------
+    @Override
+    public CompletableFuture<Acknowledge> rescaleTask(
+            ExecutionAttemptID executionAttemptID,
+            TaskDeploymentDescriptor tdd,
+            JobMasterId jobMasterId,
+            RescaleOptions rescaleOptions,
+            Time timeout) {
+
+        final Task task = taskSlotTable.getTask(executionAttemptID);
+
+        if (task != null) {
+            try {
+                try {
+                    tdd.loadBigData(taskExecutorBlobService.getPermanentBlobService());
+                } catch (IOException | ClassNotFoundException e) {
+                    throw new TaskException(
+                            "Could not re-integrate offloaded TaskDeploymentDescriptor data.", e);
+                }
+
+                final TaskInformation taskInformation;
+                try {
+                    taskInformation =
+                            tdd.getSerializedTaskInformation()
+                                    .deserializeValue(getClass().getClassLoader());
+                    taskInformation.setIdInModel(tdd.getIdInModel());
+                } catch (IOException | ClassNotFoundException e) {
+                    throw new TaskException(
+                            "Could not deserialize the job or task information.", e);
+                }
+
+                task.updateTaskConfiguration(taskInformation);
+
+                task.prepareRescalingComponent(
+                        tdd.getRescaleId(),
+                        rescaleOptions,
+                        tdd.getProducedPartitions(),
+                        tdd.getInputGates());
+
+                if (RescaleOptions.PREPARE_ONLY.equals(
+                        rescaleOptions)) { // source task at sync phase will enter this code block.
+                    return CompletableFuture.completedFuture(Acknowledge.get());
+                }
+
+                //                 TODO: For test use, comment it for now.
+                //                if (rescaleOptions.isScalingPartitions()) {
+                //                    task.createNewResultPartitions();
+                //                }
+                //
+                //                if (rescaleOptions.isRepartition()) {
+                //                    log.info("++++++ update task state: " + tdd.getSubtaskIndex()
+                // + "  " + tdd.getExecutionAttemptId());
+                //                    task.assignNewState(
+                //                            tdd.getKeyGroupRange(),
+                //                            tdd.getIdInModel(),
+                //                            tdd.getTaskRestore());
+                //                } else if (rescaleOptions.isUpdateKeyGroupRange()) {
+                //                    log.info("++++++ update task keyGroupRange for subtask: " +
+                // tdd.getSubtaskIndex() + "  " + tdd.getExecutionAttemptId());
+                //                    task.updateKeyGroupRange(tdd.getKeyGroupRange());
+                //                } else {
+                //                    // author: @hya
+                //                    return task.finalizeRescaleAsync().thenApply(o ->
+                // Acknowledge.get());
+                //                }
+                // TODO: For test use, comment it for now.
+                return CompletableFuture.completedFuture(Acknowledge.get());
+            } catch (Exception e) {
+                log.error("++++++ rescaleTask err", e);
+                return FutureUtils.completedExceptionally(e);
+            }
+        } else {
+            final String message =
+                    "Cannot find task to update its configuration " + executionAttemptID + '.';
+
+            log.debug(message);
+            return FutureUtils.completedExceptionally(new TaskException(message));
+        }
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> scheduleSync(
+            ExecutionAttemptID executionAttemptID, int syncFlag, @RpcTimeout Time timeout) {
+        final Task task = taskSlotTable.getTask(executionAttemptID);
+        if (task != null) {
+            try {
+                // Run asynchronously because it might be blocking
+                task.prepareSync(syncFlag);
+
+                return CompletableFuture.completedFuture(Acknowledge.get());
+            } catch (Exception e) {
+                return FutureUtils.completedExceptionally(e);
+            }
+        } else {
+            log.debug(
+                    "Discard update for input partitions of task {}. Task is no longer running.",
+                    executionAttemptID);
+            return CompletableFuture.completedFuture(Acknowledge.get());
+        }
     }
 
     // ------------------------------------------------------------------------

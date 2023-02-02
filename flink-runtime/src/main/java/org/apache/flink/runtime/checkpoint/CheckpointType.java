@@ -43,6 +43,11 @@ public final class CheckpointType implements SnapshotType {
         return false;
     }
 
+    @Override
+    public boolean isRescalepoint() {
+        return false;
+    }
+
     public String getName() {
         return name;
     }

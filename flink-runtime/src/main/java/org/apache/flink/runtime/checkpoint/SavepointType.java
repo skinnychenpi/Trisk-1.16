@@ -54,6 +54,11 @@ public class SavepointType implements SnapshotType {
         return true;
     }
 
+    @Override
+    public boolean isRescalepoint() {
+        return false;
+    }
+
     public boolean isSynchronous() {
         return postCheckpointAction != PostCheckpointAction.NONE;
     }

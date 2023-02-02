@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.rescale.RescaleID;
 
 import java.io.Serializable;
 
@@ -49,7 +50,7 @@ public class PartitionDescriptor implements Serializable {
     private final ResultPartitionType partitionType;
 
     /** The number of subpartitions. */
-    private final int numberOfSubpartitions;
+    private int numberOfSubpartitions;
 
     /** Connection index to identify this partition of intermediate result. */
     private final int connectionIndex;
@@ -62,6 +63,8 @@ public class PartitionDescriptor implements Serializable {
      * DistributionPattern.ALL_TO_ALL}.
      */
     private final boolean isAllToAllDistribution;
+
+    private RescaleID rescaleId = RescaleID.DEFAULT;
 
     @VisibleForTesting
     public PartitionDescriptor(
@@ -145,5 +148,18 @@ public class PartitionDescriptor implements Serializable {
                 result.getConnectionIndex(),
                 result.isBroadcast(),
                 result.getConsumingDistributionPattern() == DistributionPattern.ALL_TO_ALL);
+    }
+
+    // Trisk methods
+    public void setRescaleId(RescaleID rescaleId) {
+        this.rescaleId = checkNotNull(rescaleId);
+    }
+
+    public void setNumberOfSubpartitions(int numberOfSubpartitions) {
+        this.numberOfSubpartitions = numberOfSubpartitions;
+    }
+
+    public RescaleID getRescaleId() {
+        return rescaleId;
     }
 }

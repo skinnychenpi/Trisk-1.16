@@ -116,8 +116,11 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
             String externalPointer) {
 
         super(checkpointId, triggerTimestamp, props, totalSubtaskCount, taskStats);
-        checkArgument(
-                numAcknowledgedSubtasks == totalSubtaskCount, "Did not acknowledge all subtasks.");
+        if (!props.isRescalePoint()) {
+            checkArgument(
+                    numAcknowledgedSubtasks == totalSubtaskCount,
+                    "Did not acknowledge all subtasks.");
+        }
         checkArgument(checkpointedSize >= 0, "Negative checkpointed size");
         this.checkpointedSize = checkpointedSize;
         checkArgument(stateSize >= 0, "Negative state size");

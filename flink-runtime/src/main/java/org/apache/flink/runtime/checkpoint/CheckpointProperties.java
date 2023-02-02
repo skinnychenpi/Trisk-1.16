@@ -179,6 +179,10 @@ public class CheckpointProperties implements Serializable {
         return checkpointType.isSavepoint();
     }
 
+    public boolean isRescalePoint() {
+        return checkpointType.isRescalepoint();
+    }
+
     /**
      * Returns whether the checkpoint properties describe a synchronous savepoint/checkpoint.
      *
@@ -298,6 +302,18 @@ public class CheckpointProperties implements Serializable {
                 false,
                 false,
                 false,
+                false);
+    }
+
+    public static CheckpointProperties forRescalePoint() {
+        return new CheckpointProperties(
+                true,
+                RescalepointType.rescalepoint(SavepointFormatType.DEFAULT),
+                true,
+                true,
+                true,
+                true,
+                true,
                 false);
     }
 

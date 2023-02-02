@@ -26,6 +26,8 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.runtime.executiongraph.TaskInformation;
+import org.apache.flink.runtime.rescale.RescaleID;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
@@ -124,6 +126,16 @@ public final class TaskDeploymentDescriptor implements Serializable {
 
     /** Information to restore the task. This can be null if there is no state to restore. */
     @Nullable private final JobManagerTaskRestore taskRestore;
+
+    // Trisk Fields
+    /** The ID referencing the rescale id of the task */
+    private RescaleID rescaleId = RescaleID.DEFAULT;
+
+    /** The id in Streamswitch. */
+    private int idInModel = Integer.MAX_VALUE / 2;
+
+    /** Assigned keyGroupRange. */
+    private KeyGroupRange keyGroupRange;
 
     public TaskDeploymentDescriptor(
             JobID jobId,
@@ -304,5 +316,26 @@ public final class TaskDeploymentDescriptor implements Serializable {
         strBuilder.append("]");
 
         return strBuilder.toString();
+    }
+
+    // Trisk Methods
+    public void setIdInModel(int idInModel) {
+        this.idInModel = idInModel;
+    }
+
+    public int getIdInModel() {
+        return idInModel;
+    }
+
+    public KeyGroupRange getKeyGroupRange() {
+        return keyGroupRange;
+    }
+
+    public void setKeyGroupRange(KeyGroupRange keyGroupRange) {
+        this.keyGroupRange = keyGroupRange;
+    }
+
+    public RescaleID getRescaleId() {
+        return rescaleId;
     }
 }

@@ -228,4 +228,8 @@ public abstract class AbstractInvokable
     public boolean isUsingNonBlockingInput() {
         return false;
     }
+
+    // ------------------------------------------------------------------------
+    //  Trisk Methods
+    // ------------------------------------------------------------------------
 }

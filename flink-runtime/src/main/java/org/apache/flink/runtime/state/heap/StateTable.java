@@ -70,6 +70,11 @@ public abstract class StateTable<K, N, S>
     protected final KeyGroupRange keyGroupRange;
 
     /**
+     * The offset to the contiguous key groups.
+     */
+    protected int keyGroupOffset;
+
+    /**
      * Map for holding the actual state objects. The outer array represents the key-groups. All
      * array positions will be initialized with an empty state map.
      */
@@ -436,5 +441,10 @@ public abstract class StateTable<K, N, S>
             keyGroupedStateMaps[keyGroupIndex - 1].put(
                     stateEntry.getKey(), stateEntry.getNamespace(), newValue);
         }
+    }
+
+    // Trisk Methods ------------------------------------------------------------------------------
+    public void updateKeyGroupOffset() {
+        this.keyGroupOffset = keyContext.getKeyGroupRange().getStartKeyGroup();
     }
 }

@@ -37,6 +37,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointStoreUtil;
+import org.apache.flink.runtime.checkpoint.JobManagerTaskRestore;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
@@ -1659,6 +1660,38 @@ public class Task
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void createNewResultPartitions() throws IOException {
+        taskRescaleManager.createNewResultPartitions();
+    }
+
+    public CompletableFuture<Void> finalizeRescaleAsync() {
+        return checkNotNull(invokable).finalizeRescale();
+    }
+
+    public void assignNewState(KeyGroupRange keyGroupRange, int idInModel, JobManagerTaskRestore taskRestore) {
+        try {
+            LOG.info("++++++ assign new state");
+            taskStateManager.updateTaskRestore(taskRestore);
+        } catch (NullPointerException e){
+            e.printStackTrace();
+            LOG.error("++++++ rescaleTask err", e);
+            System.err.println("may not generate state now or it is a stateless task");
+        } finally {
+            LOG.info("++++++ reinitialize state");
+            invokable.reinitializeState(keyGroupRange, idInModel);
+            taskRescaleManager.finish();
+        }
+    }
+
+    public void updateKeyGroupRange(KeyGroupRange keyGroupRange) {
+        LOG.info("++++++ update keyGroupRange : " + keyGroupRange);
+        // it is better to keep those two be consistent.
+        this.keyGroupRange = keyGroupRange;
+        invokable.updateKeyGroupRange(keyGroupRange);
+        // make sure always call finish in Task
+        taskRescaleManager.finish();
     }
 
     // ------------------------------------------------------------------------

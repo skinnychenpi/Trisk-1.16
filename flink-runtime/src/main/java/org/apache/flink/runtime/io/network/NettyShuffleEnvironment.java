@@ -45,6 +45,7 @@ import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -329,6 +330,26 @@ public class NettyShuffleEnvironment
                     taskExecutorResourceId, (NettyShuffleDescriptor) shuffleDescriptor);
         }
         return true;
+    }
+
+    public ResourceID getTaskExecutorResourceId() {
+        return taskExecutorResourceId;
+    }
+
+    public void unregisterPartitions(ResultPartitionWriter[] partitions) {
+        synchronized (lock) {
+            if (partitions != null) {
+                for (ResultPartitionWriter partition : partitions) {
+                    resultPartitionManager.releasePartitionsBy(partition);
+                    try {
+                        partition.close();
+                    } catch (Throwable t) {
+                        ExceptionUtils.rethrowIfFatalError(t);
+                        LOG.error("++++++Failed to release result partition for task {}.", taskExecutorResourceId, t);
+                    }
+                }
+            }
+        }
     }
 
     /*

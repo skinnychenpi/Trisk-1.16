@@ -23,6 +23,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.InflightDataRescalingDescriptor;
+import org.apache.flink.runtime.checkpoint.JobManagerTaskRestore;
 import org.apache.flink.runtime.checkpoint.PrioritizedOperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.checkpoint.channel.SequentialChannelStateReader;
@@ -111,4 +112,6 @@ public interface TaskStateManager extends CheckpointListener, AutoCloseable {
     @Nullable
     StateChangelogStorageView<?> getStateChangelogStorageView(
             Configuration configuration, ChangelogStateHandle changelogStateHandle);
+
+    default void updateTaskRestore(@Nonnull JobManagerTaskRestore jobManagerTaskRestore){}
 }

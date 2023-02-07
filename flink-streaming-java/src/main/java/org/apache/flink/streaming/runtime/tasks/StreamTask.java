@@ -19,6 +19,7 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.operators.MailboxExecutor;
 import org.apache.flink.api.common.operators.ProcessingTimeService.ProcessingTimeCallback;
 import org.apache.flink.configuration.Configuration;
@@ -57,6 +58,7 @@ import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.RestoreMode;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointableTask;
@@ -65,16 +67,22 @@ import org.apache.flink.runtime.jobgraph.tasks.TaskInvokable;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.rescale.TaskRescaleManager;
+import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageAccess;
 import org.apache.flink.runtime.state.CheckpointStorageLoader;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.runtime.taskmanager.AsyncExceptionHandler;
 import org.apache.flink.runtime.taskmanager.AsynchronousException;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
+import org.apache.flink.runtime.taskmanager.InputGateWithMetrics;
+import org.apache.flink.runtime.taskmanager.RuntimeEnvironment;
 import org.apache.flink.runtime.taskmanager.Task;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
@@ -124,12 +132,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -273,7 +283,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     /** Thread pool for async snapshot workers. */
     private final ExecutorService asyncOperationsThreadPool;
 
-    protected final RecordWriterDelegate<SerializationDelegate<StreamRecord<OUT>>> recordWriter;
+    protected RecordWriterDelegate<SerializationDelegate<StreamRecord<OUT>>> recordWriter;
 
     protected final MailboxProcessor mailboxProcessor;
 
@@ -306,6 +316,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
     @Nullable private final AvailabilityProvider changelogWriterAvailabilityProvider;
 
+    // ----------------------------Trisk Field---------------------------------
+    private final KeyGroupRange assignedKeyGroupRange;
+
+    protected final TaskOperatorManager.PauseActionController pauseActionController;
+
+    private volatile int idInModel;
     // ------------------------------------------------------------------------
 
     /**
@@ -488,6 +504,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
             }
             throw ex;
         }
+
+        KeyGroupRange range = ((RuntimeEnvironment) getEnvironment()).keyGroupRange;
+        TaskInfo taskInfo = getEnvironment().getTaskInfo();
+
+        this.assignedKeyGroupRange = range != null ? range :
+                KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
+                        taskInfo.getMaxNumberOfParallelSubtasks(),
+                        taskInfo.getNumberOfParallelSubtasks(),
+                        taskInfo.getIndexOfThisSubtask());
+
+        this.idInModel = getEnvironment().getTaskInfo().getIndexOfThisSubtask();
+        this.pauseActionController = ((RuntimeEnvironment)getEnvironment()).taskOperatorManager.getPauseActionController();
     }
 
     private TimerService createTimerService(String timerThreadName) {
@@ -1742,5 +1770,111 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     @Override
     public final Environment getEnvironment() {
         return environment;
+    }
+
+    // Trisk Methods
+    public CompletableFuture<Void> finalizeRescale(){
+        Future<Void> success = mailboxProcessor.getMainMailboxExecutor().submit(
+                this::initReconnect,
+                "initReconnect");
+        return CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        success.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }
+        );
+    }
+
+    @Override
+    public void updateKeyGroupRange(KeyGroupRange keyGroupRange) {
+        LOG.info("++++++ updateKeyGroupRange: "  + this.toString() + "  " + keyGroupRange);
+
+//		TaskRescaleManager rescaleManager = ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
+
+        actionExecutor.runThrowing(() -> {
+            this.assignedKeyGroupRange.update(keyGroupRange);
+
+            // not only update keygroup range, but also the offset in statetable.
+            updateKeyGroupOffset();
+
+//			rescaleManager.finish();
+        });
+
+//		throw new IllegalArgumentException("updateKeyGroupRange is not suppported now.");
+    }
+
+    private void updateKeyGroupOffset() {
+        Iterator<StreamOperatorWrapper<?,?>> allOperators = operatorChain.getAllOperators().iterator();
+
+        while (allOperators.hasNext()) {
+            StreamOperator operator = allOperators.next().getStreamOperator();
+            if (null != operator) {
+                operator.updateKeyGroupOffset();
+            }
+        }
+//
+//        for (StreamOperator<?> operator : allOperators) {
+//            if (null != operator) {
+//                operator.updateKeyGroupOffset();
+//            }
+//        }
+    }
+
+    private void initReconnect() {
+        actionExecutor.runThrowing(() -> {
+            TaskRescaleManager rescaleManager = ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
+
+            if (!rescaleManager.isScalingTarget()) {
+                return;
+            }
+            LOG.info("++++++ trigger target vertex rescaling: " + this.toString());
+            // this line is to record the time to redistribute
+            // long start = System.nanoTime();
+
+            try {
+                // update gate
+                if (rescaleManager.isScalingGates()) {
+                    for (InputGate gate : getEnvironment().getAllInputGates()) {
+                        rescaleManager.substituteInputGateChannels((SingleInputGate) ((InputGateWithMetrics) gate).getInputGate());
+                    }
+                }
+
+                // update output (writers)
+                if (rescaleManager.isScalingPartitions()) {
+                    replaceResultPartitions(rescaleManager);
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                LOG.info("++++++ error", e);
+            } finally {
+                rescaleManager.finish();
+//			System.out.println("redistribute id: " + this.toString() + " time: " + (System.nanoTime() - start));
+                // complete reconnection, then start to process tuple,
+                // the total migration time is T(complete reconnection) - T(receive barrior).
+                System.out.println(this.toString() + " completed reconnection: " + System.currentTimeMillis());
+            }
+        });
+    }
+
+    protected void replaceResultPartitions(TaskRescaleManager rescaleManager) throws IOException {
+        ResultPartitionWriter[] oldWriterCopies =
+                rescaleManager.substituteResultPartitions(getEnvironment().getAllWriters());
+
+        recordWriter = createRecordWriterDelegate(configuration, getEnvironment());
+
+        RecordWriterOutput<?>[] oldStreamOutputCopies =
+                operatorChain.substituteRecordWriter(this, recordWriter);
+
+        //  close old output and unregister partitions
+        for (RecordWriterOutput<?> streamOutput : oldStreamOutputCopies) {
+            streamOutput.flush();
+            streamOutput.close();
+        }
+
+        rescaleManager.unregisterPartitions(oldWriterCopies);
     }
 }

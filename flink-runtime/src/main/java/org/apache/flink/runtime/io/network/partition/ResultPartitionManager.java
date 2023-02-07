@@ -18,6 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,11 +41,15 @@ public class ResultPartitionManager implements ResultPartitionProvider {
 
     private final Map<ResultPartitionID, ResultPartition> registeredPartitions = new HashMap<>(16);
 
+    private final Map<ExecutionAttemptID, Map<ResultPartitionID, ResultPartition>>
+            registeredPartitionsByExecutionID = new HashMap<>();
     private boolean isShutdown;
 
     public void registerResultPartition(ResultPartition partition) {
         synchronized (registeredPartitions) {
             checkState(!isShutdown, "Result partition manager already shut down.");
+
+            ResultPartitionID partitionId = partition.getPartitionId();
 
             ResultPartition previous =
                     registeredPartitions.put(partition.getPartitionId(), partition);
@@ -50,6 +57,12 @@ public class ResultPartitionManager implements ResultPartitionProvider {
             if (previous != null) {
                 throw new IllegalStateException("Result partition already registered.");
             }
+
+            Map<ResultPartitionID, ResultPartition> partitions =
+                    registeredPartitionsByExecutionID.getOrDefault(partitionId.getProducerId(), new HashMap<>());
+
+            partitions.put(partitionId, partition);
+            registeredPartitionsByExecutionID.put(partitionId.getProducerId(), partitions);
 
             LOG.debug("Registered {}.", partition);
         }
@@ -135,6 +148,19 @@ public class ResultPartitionManager implements ResultPartitionProvider {
     public Collection<ResultPartitionID> getUnreleasedPartitions() {
         synchronized (registeredPartitions) {
             return registeredPartitions.keySet();
+        }
+    }
+
+    public void releasePartitionsBy(ResultPartitionWriter partition) {
+        synchronized (registeredPartitions) {
+            ResultPartitionID partitionId = partition.getPartitionId();
+
+            registeredPartitions.remove(partitionId);
+            registeredPartitionsByExecutionID.get(partitionId.getProducerId()).remove(partitionId);
+
+            if (partition instanceof ResultPartition) {
+                ((ResultPartition) partition).release();
+            }
         }
     }
 }

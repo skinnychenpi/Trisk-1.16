@@ -46,6 +46,7 @@ import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.runtime.state.heap.HeapKeyedStateBackend;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -55,6 +56,7 @@ import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 import org.apache.flink.streaming.util.LatencyStats;
+import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -648,5 +650,72 @@ public abstract class AbstractStreamOperator<OUT>
 
     protected Optional<InternalTimeServiceManager<?>> getTimeServiceManager() {
         return Optional.ofNullable(timeServiceManager);
+    }
+
+    // Trisk methods and classes
+    public static class UpdatableOutput<OUT> implements Output<StreamRecord<OUT>> {
+        private volatile Output<StreamRecord<OUT>> output;
+
+        public UpdatableOutput(Output<StreamRecord<OUT>> output) {
+            this.output = output;
+        }
+
+        @Override
+        public void emitWatermark(Watermark mark) {
+            output.emitWatermark(mark);
+        }
+
+        @Override
+        public void emitWatermarkStatus(WatermarkStatus watermarkStatus) {
+            output.emitWatermarkStatus(watermarkStatus);
+        }
+
+        @Override
+        public void emitLatencyMarker(LatencyMarker latencyMarker) {
+            output.emitLatencyMarker(latencyMarker);
+        }
+
+        @Override
+        public void collect(StreamRecord<OUT> record) {
+            output.collect(record);
+        }
+
+        @Override
+        public <X> void collect(OutputTag<X> outputTag, StreamRecord<X> record) {
+            output.collect(outputTag, record);
+        }
+
+        @Override
+        public void close() {
+            output.close();
+        }
+
+        public void updateOutput(Output<StreamRecord<OUT>> output) {
+            this.output = output;
+        }
+    }
+    @Override
+    public void updateOutput(StreamTask<?, ?> containingTask, Output<StreamRecord<OUT>> output) {
+        if (this.output instanceof UpdatableOutput) {
+            try {
+                OperatorMetricGroup operatorMetricGroup = containingTask.getEnvironment()
+                        .getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorName());
+                output = new CountingOutput<>(output, operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
+            } catch (Exception e) {
+                LOG.warn("An error occurred while instantiating task metrics during updating output.", e);
+            }
+
+            ((UpdatableOutput<OUT>) this.output).updateOutput(output);
+        } else {
+            LOG.error("++++++ Cannot updateOutput since output is not instance of UpdatableOutput");
+            // TODO scaling : hanle error using a more proper way
+        }
+    }
+
+    @Override
+    public void updateKeyGroupOffset() {
+        if (stateHandler.getKeyedStateBackend() instanceof HeapKeyedStateBackend) {
+            ((HeapKeyedStateBackend) stateHandler.getKeyedStateBackend()).updateKeyGroupOffset();
+        }
     }
 }

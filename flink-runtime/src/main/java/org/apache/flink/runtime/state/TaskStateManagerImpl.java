@@ -37,6 +37,8 @@ import org.apache.flink.runtime.state.changelog.StateChangelogStorageView;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
 import org.apache.flink.util.ExceptionUtils;
 
+import org.apache.flink.util.Preconditions;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +74,7 @@ public class TaskStateManagerImpl implements TaskStateManager {
      * The data given by the job manager to restore the job. This is null for a new job without
      * previous state.
      */
-    @Nullable private final JobManagerTaskRestore jobManagerTaskRestore;
+    @Nullable private JobManagerTaskRestore jobManagerTaskRestore;
 
     /** The local state store to which this manager reports local state snapshots. */
     private final TaskLocalStateStore localStateStore;
@@ -285,5 +287,12 @@ public class TaskStateManagerImpl implements TaskStateManager {
     @Override
     public void close() throws Exception {
         sequentialChannelStateReader.close();
+    }
+
+    // Trisk Methods
+    @Override
+    public void updateTaskRestore(@Nonnull JobManagerTaskRestore jobManagerTaskRestore){
+        Preconditions.checkNotNull(jobManagerTaskRestore, "passed jobManagerTaskRestore is null");
+        this.jobManagerTaskRestore = jobManagerTaskRestore;
     }
 }

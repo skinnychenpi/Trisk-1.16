@@ -18,6 +18,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.rescale.RescaleID;
 import org.apache.flink.runtime.rescale.RescaleOptions;
 import org.apache.flink.runtime.rescale.RescalepointAcknowledgeListener;
 import org.apache.flink.util.Preconditions;
@@ -282,6 +283,51 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
     public CompletableFuture<Map<Integer, Map<Integer, Diff>>> updateFunction(
             Map<Integer, List<Integer>> tasks, Map<Integer, Map<Integer, Diff>> message) {
         return null;
+    }
+
+    private CompletableFuture<Void> updatePartitions(int operatorID, RescaleID rescaleID) throws ExecutionGraphException {
+        // update result partition
+        JobVertexID jobVertexID = rawVertexIDToJobVertexID(operatorID);
+        ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexID);
+        Preconditions.checkNotNull(jobVertex, "Execution job vertex not found: " + jobVertexID);
+        List<CompletableFuture<Void>> updatePartitionsFuture = new ArrayList<>();
+        if (!jobVertex.getInputs().isEmpty() || currentSyncOp == null) {
+            // the source operator has updated its partitions during synchronization, skip source operator partition update
+            jobVertex.cleanBeforeRescale();
+            for (ExecutionVertex vertex : jobVertex.getTaskVertices()) {
+                Execution execution = vertex.getCurrentExecutionAttempt();
+                if (!vertex.getRescaleId().equals(rescaleID) && execution != null && execution.getState() == ExecutionState.RUNNING) {
+                    execution.updateProducedPartitions(rescaleID);
+                    updatePartitionsFuture.add(execution.scheduleRescale(rescaleID, RescaleOptions.RESCALE_PARTITIONS_ONLY, null));
+                }
+            }
+        }
+        return FutureUtils.completeAll(updatePartitionsFuture);
+    }
+
+    private CompletableFuture<Void> updateDownstreamGates(int operatorID) {
+        List<CompletableFuture<Void>> updateGatesFuture = new ArrayList<>();
+        // update input gates in child stream of source op
+        for (OperatorDescriptor downstreamOperator : heldExecutionPlan.getOperatorByID(operatorID).getChildren()) {
+            try {
+                updateGates(downstreamOperator.getOperatorID(), updateGatesFuture); // 这里的downstreamOperator 是 FlatMap
+            } catch (ExecutionGraphException e) {
+                e.printStackTrace();
+            }
+        }
+        return FutureUtils.completeAll(updateGatesFuture);
+    }
+
+    private void updateGates(int operatorID, List<CompletableFuture<Void>> futureList) throws ExecutionGraphException {
+        JobVertexID jobVertexID = rawVertexIDToJobVertexID(operatorID);
+        ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexID);
+        Preconditions.checkNotNull(jobVertex, "Execution job vertex not found: " + jobVertexID);
+        for (ExecutionVertex vertex : jobVertex.getTaskVertices()) {
+            Execution execution = vertex.getCurrentExecutionAttempt();
+            if (execution != null && execution.getState() == ExecutionState.RUNNING) {
+                futureList.add(execution.scheduleRescale(rescaleID, RescaleOptions.RESCALE_GATES_ONLY, null));
+            }
+        }
     }
 
     private class SynchronizeOperation implements RescalepointAcknowledgeListener {

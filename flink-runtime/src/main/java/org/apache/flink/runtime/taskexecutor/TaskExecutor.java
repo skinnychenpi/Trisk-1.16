@@ -2262,29 +2262,23 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                         rescaleOptions)) { // source task at sync phase will enter this code block.
                     return CompletableFuture.completedFuture(Acknowledge.get());
                 }
+                if (rescaleOptions.isScalingPartitions()) {
+                    task.createNewResultPartitions();
+                }
 
-                //                 TODO: For test use, comment it for now.
-                //                if (rescaleOptions.isScalingPartitions()) {
-                //                    task.createNewResultPartitions();
-                //                }
-                //
-                //                if (rescaleOptions.isRepartition()) {
-                //                    log.info("++++++ update task state: " + tdd.getSubtaskIndex()
-                // + "  " + tdd.getExecutionAttemptId());
-                //                    task.assignNewState(
-                //                            tdd.getKeyGroupRange(),
-                //                            tdd.getIdInModel(),
-                //                            tdd.getTaskRestore());
-                //                } else if (rescaleOptions.isUpdateKeyGroupRange()) {
-                //                    log.info("++++++ update task keyGroupRange for subtask: " +
-                // tdd.getSubtaskIndex() + "  " + tdd.getExecutionAttemptId());
-                //                    task.updateKeyGroupRange(tdd.getKeyGroupRange());
-                //                } else {
-                //                    // author: @hya
-                //                    return task.finalizeRescaleAsync().thenApply(o ->
-                // Acknowledge.get());
-                //                }
-                // TODO: For test use, comment it for now.
+                if (rescaleOptions.isRepartition()) {
+                    log.info("++++++ update task state: " + tdd.getSubtaskIndex() + "  " + tdd.getExecutionAttemptId());
+                    task.assignNewState(
+                            tdd.getKeyGroupRange(),
+                            tdd.getIdInModel(),
+                            tdd.getTaskRestore());
+                } else if (rescaleOptions.isUpdateKeyGroupRange()) {
+                    log.info("++++++ update task keyGroupRange for subtask: " + tdd.getSubtaskIndex() + "  " + tdd.getExecutionAttemptId());
+                    task.updateKeyGroupRange(tdd.getKeyGroupRange());
+                } else {
+                    // author: @hya
+                    return task.finalizeRescaleAsync().thenApply(o -> Acknowledge.get());
+                }
                 return CompletableFuture.completedFuture(Acknowledge.get());
             } catch (Exception e) {
                 log.error("++++++ rescaleTask err", e);

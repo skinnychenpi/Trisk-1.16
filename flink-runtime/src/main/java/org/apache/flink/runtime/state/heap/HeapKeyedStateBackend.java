@@ -487,4 +487,11 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
                 StateDescriptor<S, SV> stateDesc, StateTable<K, N, SV> stateTable, IS existingState)
                 throws Exception;
     }
+
+    // Trisk Methods
+    public void updateKeyGroupOffset() {
+        for (StateTable registeredKVState : registeredKVStates.values()) {
+            registeredKVState.updateKeyGroupOffset();
+        }
+    }
 }

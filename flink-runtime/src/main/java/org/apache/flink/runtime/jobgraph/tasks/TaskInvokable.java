@@ -18,8 +18,11 @@ package org.apache.flink.runtime.jobgraph.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.state.KeyGroupRange;
 
 import javax.annotation.Nullable;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * An invokable part of the task.
@@ -99,4 +102,16 @@ public interface TaskInvokable {
      */
     void maybeInterruptOnCancel(
             Thread toInterrupt, @Nullable String taskName, @Nullable Long timeout);
+
+    default CompletableFuture<Void> finalizeRescale(){
+        throw new UnsupportedOperationException(String.format("updateOperatorConfig not supported by %s", this.getClass().getName()));
+    }
+
+    default void reinitializeState(KeyGroupRange keyGroupRange, int idInModel) {
+        throw new UnsupportedOperationException(String.format("reinitializeState not supported by %s", this.getClass().getName()));
+    }
+
+    default void updateKeyGroupRange(KeyGroupRange keyGroupRange) {
+        throw new UnsupportedOperationException(String.format("updateKeyGroupRange not supported by %s", this.getClass().getName()));
+    }
 }

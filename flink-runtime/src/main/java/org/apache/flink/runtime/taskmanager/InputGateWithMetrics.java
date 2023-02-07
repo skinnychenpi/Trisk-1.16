@@ -157,4 +157,8 @@ public class InputGateWithMetrics extends IndexedInputGate {
 
         return bufferOrEvent;
     }
+
+    public InputGate getInputGate() {
+        return inputGate;
+    }
 }

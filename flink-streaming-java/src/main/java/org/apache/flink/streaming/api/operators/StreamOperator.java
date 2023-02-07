@@ -24,6 +24,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.tasks.StreamTask;
 
 import java.io.Serializable;
 
@@ -148,4 +149,8 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
     OperatorMetricGroup getMetricGroup();
 
     OperatorID getOperatorID();
+
+    default void updateOutput(StreamTask<?, ?> containingTask, Output<StreamRecord<OUT>> output) {};
+
+    default void updateKeyGroupOffset(){};
 }

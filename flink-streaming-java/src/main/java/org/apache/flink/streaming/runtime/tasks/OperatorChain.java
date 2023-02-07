@@ -855,4 +855,57 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                                         .sendEventToCoordinator(
                                                 new AcknowledgeCheckpointEvent(checkpointId)));
     }
+
+    public <T> RecordWriterOutput[] substituteRecordWriter(
+            StreamTask<OUT, OP> containingTask,
+            RecordWriterDelegate<SerializationDelegate<StreamRecord<OUT>>> recordWriterDelegate) {
+
+        final ClassLoader userCodeClassloader = containingTask.getUserCodeClassLoader();
+        final StreamConfig configuration = containingTask.getConfiguration();
+
+        final RecordWriterOutput[] oldStreamOutputCopies = Arrays.copyOf(this.streamOutputs, this.streamOutputs.length);
+
+        StreamOperatorFactory<OUT> operatorFactory = configuration.getStreamOperatorFactory(userCodeClassloader);
+
+        // we read the chained configs, and the order of record writer registrations by output name
+        Map<Integer, StreamConfig> chainedConfigs = configuration.getTransitiveChainedTaskConfigsWithSelf(userCodeClassloader);
+
+
+        List<NonChainedOutput> outputsInOrder =
+                configuration.getVertexNonChainedOutputs(userCodeClassloader);
+
+        // create the final output stream writers
+        // we iterate through all the out edges from this job vertex and create a stream output
+        List<StreamEdge> outEdgesInOrder = configuration.getOutEdgesInOrder(userCodeClassloader);
+        Map<IntermediateDataSetID, RecordWriterOutput<?>> streamOutputMap = new HashMap<>(outputsInOrder.size());
+
+        // from here on, we need to make sure that the output writers are shut down again on failure
+        createChainOutputs(outputsInOrder, recordWriterDelegate, chainedConfigs, containingTask, streamOutputMap);
+
+        Map<OperatorID, StreamOperator<?>> operatorMap = new HashMap<>();
+        for (StreamOperatorWrapper<?,?> operatorWrapper : this.getAllOperators()) {
+            StreamOperator<?> operator = operatorWrapper.getStreamOperator();
+            operatorMap.put(operator.getOperatorID(), operator);
+        }
+
+        Map<Integer, WatermarkGaugeExposingOutput<StreamRecord<T>>> watermarkGaugeExposingOutputMap = new HashMap<>();
+        for (StreamConfig operatorConfig : chainedConfigs.values()) {
+            @SuppressWarnings("unchecked")
+            StreamOperator<T> operator = (StreamOperator<T>) operatorMap.get(operatorConfig.getOperatorID());
+
+            for (NonChainedOutput streamOutput : operatorConfig.getOperatorNonChainedOutputs(userCodeClassloader)) {
+                @SuppressWarnings("unchecked")
+                RecordWriterOutput<T> output = (RecordWriterOutput<T>) streamOutputMap.get(streamOutput.getDataSetId());
+                operator.updateOutput(containingTask, output);
+                // TODO scaling : what if multiple output, this is a problem!!!! @hya
+            }
+//			WatermarkGaugeExposingOutput<StreamRecord<T>> output =
+//					generateOutputBaseExistOperator(containingTask, operatorConfig, streamOutputMap, watermarkGaugeExposingOutputMap);
+//			watermarkGaugeExposingOutputMap.put(operatorConfig.getVertexID(), output);
+//			operator.updateOutput(containingTask, output);
+//			// todo not update chainEntryPoint
+        }
+
+        return oldStreamOutputCopies;
+    }
 }

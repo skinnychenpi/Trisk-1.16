@@ -139,10 +139,10 @@ public class SingleInputGate extends IndexedInputGate {
      * depends on the {@link DistributionPattern} and the subtask indices of the producing and
      * consuming task. The range is inclusive.
      */
-    private final SubpartitionIndexRange subpartitionIndexRange;
+    private SubpartitionIndexRange subpartitionIndexRange;
 
     /** The number of input channels (equivalent to the number of consumed partitions). */
-    private final int numberOfInputChannels;
+    private int numberOfInputChannels;
 
     /**
      * Input channels. There is one input channel for each consumed subpartition. We store this in a
@@ -161,13 +161,13 @@ public class SingleInputGate extends IndexedInputGate {
      * unified onto one.
      */
     @GuardedBy("inputChannelsWithData")
-    private final BitSet enqueuedInputChannelsWithData;
+    private BitSet enqueuedInputChannelsWithData;
 
     @GuardedBy("inputChannelsWithData")
-    private final BitSet channelsWithEndOfPartitionEvents;
+    private BitSet channelsWithEndOfPartitionEvents;
 
     @GuardedBy("inputChannelsWithData")
-    private final BitSet channelsWithEndOfUserRecords;
+    private BitSet channelsWithEndOfUserRecords;
 
     @GuardedBy("inputChannelsWithData")
     private int[] lastPrioritySequenceNumber;
@@ -1082,6 +1082,53 @@ public class SingleInputGate extends IndexedInputGate {
 
         return Optional.of(inputChannel);
     }
+    // --------------------------Trisk Methods---------------------------------
+    public IntermediateDataSetID getConsumedResultId() {
+        return consumedResultId;
+    }
+
+    public SubpartitionIndexRange getSubpartitionIndexRange() {
+        return subpartitionIndexRange;
+    }
+
+    public void setConsumedSubpartitionIndex(int consumedSubpartitionIndex) {
+        SubpartitionIndexRange newRange = new SubpartitionIndexRange(consumedSubpartitionIndex, consumedSubpartitionIndex);
+        this.subpartitionIndexRange = newRange;
+    }
+
+    public void reset(int numberOfInputChannels) {
+        synchronized (requestLock) {
+            for (InputChannel inputChannel : inputChannels.values()) {
+                try {
+                    inputChannel.releaseAllResources();
+                }
+                catch (IOException e) {
+                    LOG.warn("{}: Error during release of channel resources: {}.",
+                            owningTaskName, e.getMessage(), e);
+                }
+            }
+            this.inputChannels.clear();
+        }
+        this.numberOfInputChannels = numberOfInputChannels;
+
+//		this.networkBufferPool = null;
+//		this.bufferPool = null;
+
+        // TODO: check whether we need to reinitialize the inputChannels hashmap
+//		this.inputChannels = new HashMap<>(numberOfInputChannels);
+
+        this.enqueuedInputChannelsWithData = new BitSet(numberOfInputChannels);
+        this.channelsWithEndOfPartitionEvents = new BitSet(numberOfInputChannels);
+        // New Added for Trisk 1.16
+        this.channelsWithEndOfUserRecords = new BitSet(numberOfInputChannels);
+        this.lastPrioritySequenceNumber = new int[numberOfInputChannels];
+        Arrays.fill(lastPrioritySequenceNumber, Integer.MIN_VALUE);
+
+        this.requestedPartitionsFlag = false;
+        this.pendingEvents.clear();
+        this.retriggerLocalRequestTimer = null;
+    }
+
 
     // ------------------------------------------------------------------------
 

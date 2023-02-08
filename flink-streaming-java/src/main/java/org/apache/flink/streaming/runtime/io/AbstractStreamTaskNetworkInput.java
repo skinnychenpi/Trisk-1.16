@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
+import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
@@ -62,6 +63,8 @@ public abstract class AbstractStreamTaskNetworkInput<
     private InputChannelInfo lastChannel = null;
     private R currentRecordDeserializer = null;
 
+    private TaskOperatorManager.PauseActionController pauseActionController;
+
     public AbstractStreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
             TypeSerializer<T> inputSerializer,
@@ -82,6 +85,10 @@ public abstract class AbstractStreamTaskNetworkInput<
         this.statusWatermarkValve = checkNotNull(statusWatermarkValve);
         this.inputIndex = inputIndex;
         this.recordDeserializers = checkNotNull(recordDeserializers);
+    }
+
+    public void setPauseActionController(TaskOperatorManager.PauseActionController pauseActionController) {
+        this.pauseActionController = pauseActionController;
     }
 
     @Override
@@ -123,6 +130,9 @@ public abstract class AbstractStreamTaskNetworkInput<
                             checkpointedInputGate.getAvailableFuture().isDone(),
                             "Finished BarrierHandler should be available");
                     return DataInputStatus.END_OF_INPUT;
+                }
+                if (this.pauseActionController != null && pauseActionController.ackIfPause()){
+                    return DataInputStatus.NEED_PAUSE;
                 }
                 return DataInputStatus.NOTHING_AVAILABLE;
             }

@@ -47,6 +47,7 @@ import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 import org.apache.flink.util.UserCodeClassLoader;
 
 import java.util.Map;
@@ -237,10 +238,6 @@ public interface Environment {
 
     TaskEventDispatcher getTaskEventDispatcher();
 
-    default TaskOperatorManager getTaskOperatorManager() {
-        return null;
-    }
-
     // --------------------------------------------------------------------------------------------
     //  Fields set in the StreamTask to provide access to mailbox and other runtime resources
     // --------------------------------------------------------------------------------------------
@@ -261,5 +258,16 @@ public interface Environment {
 
     default CheckpointStorageAccess getCheckpointStorageAccess() {
         throw new UnsupportedOperationException();
+    }
+
+    // --------------------------------------------------------------------------------------------
+    //  Trisk Methods
+    // --------------------------------------------------------------------------------------------
+
+    default MetricsManager getMetricsManager() {
+        return null;
+    }
+    default TaskOperatorManager getTaskOperatorManager() {
+        return null;
     }
 }

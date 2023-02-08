@@ -29,7 +29,6 @@ import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 import org.apache.flink.runtime.state.CheckpointStateOutputStream;
 import org.apache.flink.runtime.state.CheckpointStateToolset;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
@@ -286,8 +285,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             CheckpointMetricsBuilder metrics,
             OperatorChain<?, ?> operatorChain,
             boolean isTaskFinished,
-            Supplier<Boolean> isRunning,
-            TaskOperatorManager taskOperatorManager)
+            Supplier<Boolean> isRunning)
             throws Exception {
 
         checkNotNull(options);
@@ -378,9 +376,6 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             cleanup(snapshotFutures, metadata, metrics, ex);
             throw ex;
         }
-
-        // Step (6): Check whether the checkpoint is rescalepoint type, and do rescaling if it is.
-        checkRescalePoint(metadata, options, taskOperatorManager);
     }
 
     private void registerAlignmentTimer(
@@ -816,39 +811,5 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
                     "Time from receiving all checkpoint barriers/RPC to executing it exceeded threshold: {}ms",
                     delay);
         }
-    }
-
-    // Trisk code:
-    private void checkRescalePoint(
-            CheckpointMetaData checkpointMetaData,
-            CheckpointOptions checkpointOptions,
-            TaskOperatorManager operatorManager) {
-
-        if (!checkpointOptions.getCheckpointType().isRescalepoint()) {
-            return;
-        }
-
-        // force append latest status into metrics queue.
-        //        getMetricsManager().updateMetrics();
-
-        //        TaskOperatorManager operatorManager = ((RuntimeEnvironment)
-        // getEnvironment()).taskOperatorManager;
-        if (operatorManager.acknowledgeSyncRequest(checkpointMetaData.getCheckpointId())) {
-            // we could now pause the current processing
-            try {
-                //                System.out.println(this.getName() + ": pause the current data
-                // processing");
-                System.out.println("pause the current data processing");
-                operatorManager.getPauseActionController().setPausedAndGetAckFuture();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        // add a timer for measuring blocking time
-        // System.out.println(this.toString() + " received check point: " +
-        // System.currentTimeMillis());
-        // do not need now
-        //		initReconnect();
     }
 }

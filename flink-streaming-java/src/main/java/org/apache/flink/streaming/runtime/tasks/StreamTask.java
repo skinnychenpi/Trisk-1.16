@@ -34,6 +34,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
+import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointMetricsBuilder;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
@@ -84,6 +85,7 @@ import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.taskmanager.InputGateWithMetrics;
 import org.apache.flink.runtime.taskmanager.RuntimeEnvironment;
 import org.apache.flink.runtime.taskmanager.Task;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
 import org.apache.flink.streaming.api.graph.NonChainedOutput;
@@ -593,6 +595,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 // records).
                 controller.suspendDefaultAction();
                 mailboxProcessor.suspend();
+                return;
+            case NEED_PAUSE:
+                CompletableFuture<?> resumeFuture = pauseActionController.getResumeFuture();
+                MailboxDefaultAction.Suspension suspendedDefaultAction = controller.suspendDefaultAction();
+                resumeFuture.thenRun(suspendedDefaultAction::resume)
+                        .thenRun(()->System.out.println(getName() + ": pauseActionController get resumed"));
                 return;
         }
 
@@ -1309,8 +1317,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                                 checkpointMetrics,
                                 operatorChain,
                                 finishedOperators,
-                                this::isRunning,
-                                getEnvironment().getTaskOperatorManager());
+                                this::isRunning);
+
+                        // Check whether the checkpoint is rescalepoint type, and do rescaling if it is.
+                        checkRescalePoint(checkpointMetaData, checkpointOptions);
                     });
 
             return true;
@@ -1876,5 +1886,32 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         }
 
         rescaleManager.unregisterPartitions(oldWriterCopies);
+    }
+
+    protected void checkRescalePoint(
+            CheckpointMetaData checkpointMetaData,
+            CheckpointOptions checkpointOptions) {
+
+        if (!checkpointOptions.getCheckpointType().isRescalepoint()) {
+            return;
+        }
+
+        // force append latest status into metrics queue.
+        getMetricsManager().updateMetrics();
+
+        TaskOperatorManager operatorManager = ((RuntimeEnvironment) getEnvironment()).taskOperatorManager;
+        if(operatorManager.acknowledgeSyncRequest(checkpointMetaData.getCheckpointId())){
+            // we could now pause the current processing
+            try {
+                System.out.println(this.getName() + ": pause the current data processing");
+                operatorManager.getPauseActionController().setPausedAndGetAckFuture();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public MetricsManager getMetricsManager() {
+        return getEnvironment().getMetricsManager();
     }
 }

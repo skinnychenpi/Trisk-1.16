@@ -23,7 +23,6 @@ import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetricsBuilder;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
-import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 
 import java.io.Closeable;
@@ -57,24 +56,14 @@ public interface SubtaskCheckpointCoordinator extends Closeable {
             throws IOException;
 
     /** Must be called after {@link #initInputsCheckpoint(long, CheckpointOptions)}. */
-    default void checkpointState(
+    void checkpointState(
             CheckpointMetaData checkpointMetaData,
             CheckpointOptions checkpointOptions,
             CheckpointMetricsBuilder checkpointMetrics,
             OperatorChain<?, ?> operatorChain,
             boolean isTaskFinished,
             Supplier<Boolean> isRunning)
-            throws Exception {}
-
-    default void checkpointState(
-            CheckpointMetaData checkpointMetaData,
-            CheckpointOptions checkpointOptions,
-            CheckpointMetricsBuilder checkpointMetrics,
-            OperatorChain<?, ?> operatorChain,
-            boolean isTaskFinished,
-            Supplier<Boolean> isRunning,
-            TaskOperatorManager taskOperatorManager)
-            throws Exception {}
+            throws Exception;
 
     /**
      * Notified on the task side once a distributed checkpoint has been completed.

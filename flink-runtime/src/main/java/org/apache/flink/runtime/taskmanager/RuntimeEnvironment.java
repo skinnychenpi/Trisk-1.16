@@ -403,4 +403,9 @@ public class RuntimeEnvironment implements Environment {
         return checkNotNull(
                 checkpointStorageAccess, "checkpointStorage has not been initialized yet!");
     }
+
+    @Override
+    public MetricsManager getMetricsManager() {
+        return metricsManager;
+    }
 }

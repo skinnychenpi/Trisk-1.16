@@ -216,6 +216,7 @@ public abstract class AbstractStreamOperatorV2<OUT>
                         getOperatorID(),
                         getClass().getSimpleName(),
                         getProcessingTimeService(),
+                        null,
                         this,
                         keySerializer,
                         cancelables,

@@ -59,7 +59,6 @@ public final class StreamTaskNetworkInput<T>
                 T,
                 SpillingAdaptiveSpanningRecordDeserializer<
                         DeserializationDelegate<StreamElement>>> {
-
     public StreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
             TypeSerializer<T> inputSerializer,

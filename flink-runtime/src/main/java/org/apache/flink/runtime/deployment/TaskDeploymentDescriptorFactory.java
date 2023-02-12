@@ -43,6 +43,7 @@ import org.apache.flink.runtime.scheduler.ClusterDatasetCorruptedException;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.UnknownShuffleDescriptor;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.types.Either;
 import org.apache.flink.util.CompressedSerializedValue;
 import org.apache.flink.util.Preconditions;
@@ -78,6 +79,9 @@ public class TaskDeploymentDescriptorFactory {
     private final Map<IntermediateDataSetID, ShuffleDescriptor[]>
             consumedClusterPartitionShuffleDescriptors;
 
+    private final KeyGroupRange keyGroupRange;
+    private final int idInModel;
+
     private TaskDeploymentDescriptorFactory(
             ExecutionAttemptID executionId,
             MaybeOffloaded<JobInformation> serializedJobInformation,
@@ -89,7 +93,9 @@ public class TaskDeploymentDescriptorFactory {
                     resultPartitionRetriever,
             BlobWriter blobWriter,
             Map<IntermediateDataSetID, ShuffleDescriptor[]>
-                    consumedClusterPartitionShuffleDescriptors) {
+                    consumedClusterPartitionShuffleDescriptors,
+            @Nullable KeyGroupRange keyGroupRange,
+            int idInModel) {
         this.executionId = executionId;
         this.serializedJobInformation = serializedJobInformation;
         this.taskInfo = taskInfo;
@@ -100,6 +106,8 @@ public class TaskDeploymentDescriptorFactory {
         this.blobWriter = blobWriter;
         this.consumedClusterPartitionShuffleDescriptors =
                 consumedClusterPartitionShuffleDescriptors;
+        this.keyGroupRange = keyGroupRange;
+        this.idInModel = idInModel;
     }
 
     public TaskDeploymentDescriptor createDeploymentDescriptor(
@@ -107,35 +115,48 @@ public class TaskDeploymentDescriptorFactory {
             @Nullable JobManagerTaskRestore taskRestore,
             Collection<ResultPartitionDeploymentDescriptor> producedPartitions)
             throws IOException {
-        return new TaskDeploymentDescriptor(
-                jobID,
-                serializedJobInformation,
-                taskInfo,
-                executionId,
-                allocationID,
-                taskRestore,
-                new ArrayList<>(producedPartitions),
-                createInputGateDeploymentDescriptors());
+        TaskDeploymentDescriptor tdd =
+                new TaskDeploymentDescriptor(
+                        jobID,
+                        serializedJobInformation,
+                        taskInfo,
+                        executionId,
+                        allocationID,
+                        taskRestore,
+                        new ArrayList<>(producedPartitions),
+                        createInputGateDeploymentDescriptors());
+        tdd.setIdInModel(idInModel);
+        tdd.setKeyGroupRange(keyGroupRange);
+        return tdd;
     }
-
+    // This function helps to create the input gate of the current Task(EV/Execution/Subtask)
     private List<InputGateDeploymentDescriptor> createInputGateDeploymentDescriptors()
             throws IOException {
         List<InputGateDeploymentDescriptor> inputGates =
                 new ArrayList<>(consumedPartitionGroups.size());
-
+        // A single ConsumedPartitionGroup is essentially a list of IRPs from current EV's upstream.
+        // The length of the list is the same as the (old) parallelism of the upstream operator.
         for (ConsumedPartitionGroup consumedPartitionGroup : consumedPartitionGroups) {
             // If the produced partition has multiple consumers registered, we
             // need to request the one matching our sub task index.
             // TODO Refactor after removing the consumers from the intermediate result partitions
             IntermediateResultPartition resultPartition =
-                    resultPartitionRetriever.apply(consumedPartitionGroup.getFirst());
+                    resultPartitionRetriever.apply(
+                            consumedPartitionGroup
+                                    .getFirst()); // Here, the IRP refers to the current EV's
+            // upstream IRP(that's why we call it "consumed")
 
             IntermediateResult consumedIntermediateResult = resultPartition.getIntermediateResult();
             SubpartitionIndexRange consumedSubpartitionRange =
                     computeConsumedSubpartitionRange(
-                            consumedPartitionGroup.getNumConsumers(),
+                            consumedPartitionGroup.getNumConsumers(), // = 10
                             resultPartition,
-                            executionId.getSubtaskIndex());
+                            executionId
+                                    .getSubtaskIndex()); // For stream job, the range should be of
+            // length 1, since each input gate should
+            // only consume 1 ResultSubpartition from
+            // all upstream operators, and their index
+            // should be the same.
 
             IntermediateDataSetID resultId = consumedIntermediateResult.getId();
             ResultPartitionType partitionType = consumedIntermediateResult.getResultType();
@@ -284,7 +305,9 @@ public class TaskDeploymentDescriptorFactory {
                 executionVertex.getAllConsumedPartitionGroups(),
                 internalExecutionGraphAccessor::getResultPartitionOrThrow,
                 internalExecutionGraphAccessor.getBlobWriter(),
-                clusterPartitionShuffleDescriptors);
+                clusterPartitionShuffleDescriptors,
+                executionVertex.getKeyGroupRange(),
+                executionVertex.getIdInModel());
     }
 
     private static Map<IntermediateDataSetID, ShuffleDescriptor[]>

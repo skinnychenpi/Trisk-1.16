@@ -103,15 +103,20 @@ public interface TaskInvokable {
     void maybeInterruptOnCancel(
             Thread toInterrupt, @Nullable String taskName, @Nullable Long timeout);
 
-    default CompletableFuture<Void> finalizeRescale(){
-        throw new UnsupportedOperationException(String.format("updateOperatorConfig not supported by %s", this.getClass().getName()));
+    default CompletableFuture<Void> finalizeRescale() {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "updateOperatorConfig not supported by %s", this.getClass().getName()));
     }
 
     default void reinitializeState(KeyGroupRange keyGroupRange, int idInModel) {
-        throw new UnsupportedOperationException(String.format("reinitializeState not supported by %s", this.getClass().getName()));
+        throw new UnsupportedOperationException(
+                String.format("reinitializeState not supported by %s", this.getClass().getName()));
     }
 
     default void updateKeyGroupRange(KeyGroupRange keyGroupRange) {
-        throw new UnsupportedOperationException(String.format("updateKeyGroupRange not supported by %s", this.getClass().getName()));
+        throw new UnsupportedOperationException(
+                String.format(
+                        "updateKeyGroupRange not supported by %s", this.getClass().getName()));
     }
 }

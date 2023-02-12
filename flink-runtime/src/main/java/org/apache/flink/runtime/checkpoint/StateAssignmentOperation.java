@@ -912,7 +912,8 @@ public class StateAssignmentOperation {
                                         rawStateTuple.f1));
                     }
                 }
-                // Result: subManagedKeyedState for 0/10 = {0, 10, 20, ..., 120}; 1/10 = {1, 11, 21, ..., 121}
+                // Result: subManagedKeyedState for 0/10 = {0, 10, 20, ..., 120}; 1/10 = {1, 11, 21,
+                // ..., 121}
                 // Not continuous, why?
                 taskStateAssignment.subManagedKeyedState.put(instanceID, subManagedKeyedStates);
                 taskStateAssignment.subRawKeyedState.put(instanceID, subRawKeyedStates);

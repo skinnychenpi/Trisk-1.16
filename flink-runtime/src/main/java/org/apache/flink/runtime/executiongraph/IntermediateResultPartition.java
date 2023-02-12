@@ -114,13 +114,10 @@ public class IntermediateResultPartition {
     }
 
     public int getNumberOfSubpartitions() {
-        if (numberOfSubpartitions == UNKNOWN) {
-            numberOfSubpartitions = computeNumberOfSubpartitions();
-            checkState(
-                    numberOfSubpartitions > 0,
-                    "Number of subpartitions is an unexpected value: " + numberOfSubpartitions);
-        }
-
+        numberOfSubpartitions = computeNumberOfSubpartitions();
+        checkState(
+                numberOfSubpartitions > 0,
+                "Number of subpartitions is an unexpected value: " + numberOfSubpartitions);
         return numberOfSubpartitions;
     }
 

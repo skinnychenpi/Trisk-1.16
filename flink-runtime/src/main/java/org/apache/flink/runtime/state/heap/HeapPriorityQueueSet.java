@@ -148,19 +148,20 @@ public class HeapPriorityQueueSet<T extends HeapPriorityQueueElement> extends He
     }
 
     private HashMap<T, T> getDedupMapForElement(T element) {
-        int keyGroup =
+        int hashedKeyGroup =
                 KeyGroupRangeAssignment.assignToKeyGroup(
                         keyExtractor.extractKeyFromElement(element), totalNumberOfKeyGroups);
-        return getDedupMapForKeyGroup(keyGroup);
+        return getDedupMapForKeyGroup(hashedKeyGroup);
     }
 
-    private int globalKeyGroupToLocalIndex(int keyGroup) {
+    private int globalKeyGroupToLocalIndex(int hashedKeyGroup) {
+        int alignedKeyGroup = keyGroupRange.mapFromHashedToAligned(hashedKeyGroup);
         checkArgument(
-                keyGroupRange.contains(keyGroup),
+                keyGroupRange.contains(alignedKeyGroup),
                 "%s does not contain key group %s",
                 keyGroupRange,
-                keyGroup);
-        return keyGroup - keyGroupRange.getStartKeyGroup();
+                alignedKeyGroup);
+        return alignedKeyGroup - keyGroupRange.getStartKeyGroup();
     }
 
     @Nonnull

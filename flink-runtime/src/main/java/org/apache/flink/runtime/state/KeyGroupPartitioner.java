@@ -83,6 +83,9 @@ public class KeyGroupPartitioner<T> {
     /** Cached result. */
     @Nullable private PartitioningResult<T> computedResult;
 
+    /** The key-group range for the input data, covered in this partitioning. */
+    @Nonnull protected final KeyGroupRange keyGroupRange;
+
     /**
      * Creates a new {@link KeyGroupPartitioner}.
      *
@@ -120,6 +123,7 @@ public class KeyGroupPartitioner<T> {
         this.elementKeyGroups = new int[numberOfElements];
         this.counterHistogram = new int[keyGroupRange.getNumberOfKeyGroups()];
         this.computedResult = null;
+        this.keyGroupRange = keyGroupRange;
     }
 
     /**
@@ -140,11 +144,12 @@ public class KeyGroupPartitioner<T> {
         Preconditions.checkState(partitioningSource.length >= numberOfElements);
 
         for (int i = 0; i < numberOfElements; ++i) {
-            int keyGroup =
+            int hashedKeyGroup =
                     KeyGroupRangeAssignment.assignToKeyGroup(
                             keyExtractorFunction.extractKeyFromElement(partitioningSource[i]),
                             totalKeyGroups);
-            reportKeyGroupOfElementAtIndex(i, keyGroup);
+            int alignedKeyGroup = keyGroupRange.mapFromHashedToAligned(hashedKeyGroup);
+            reportKeyGroupOfElementAtIndex(i, alignedKeyGroup);
         }
     }
 

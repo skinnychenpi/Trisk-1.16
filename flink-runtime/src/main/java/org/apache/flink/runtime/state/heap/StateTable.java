@@ -69,9 +69,7 @@ public abstract class StateTable<K, N, S>
     /** The current key group range. */
     protected final KeyGroupRange keyGroupRange;
 
-    /**
-     * The offset to the contiguous key groups.
-     */
+    /** The offset to the contiguous key groups. */
     protected int keyGroupOffset;
 
     /**
@@ -94,6 +92,8 @@ public abstract class StateTable<K, N, S>
         this.keySerializer = Preconditions.checkNotNull(keySerializer);
 
         this.keyGroupRange = keyContext.getKeyGroupRange();
+
+        this.keyGroupOffset = keyContext.getKeyGroupRange().getStartKeyGroup();
 
         @SuppressWarnings("unchecked")
         StateMap<K, N, S>[] state =
@@ -298,7 +298,7 @@ public abstract class StateTable<K, N, S>
     }
 
     public int getKeyGroupOffset() {
-        return keyGroupRange.getStartKeyGroup();
+        return keyGroupOffset;
     }
 
     @VisibleForTesting
@@ -313,7 +313,7 @@ public abstract class StateTable<K, N, S>
 
     /** Translates a key-group id to the internal array offset. */
     private int indexToOffset(int index) {
-        return index - getKeyGroupOffset();
+        return index - keyGroupOffset;
     }
 
     // Meta data setter / getter and toString -----------------------------------------------------

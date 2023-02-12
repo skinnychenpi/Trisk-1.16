@@ -122,6 +122,7 @@ class StreamOperatorContextBuilder {
                     operatorState.getOperatorID(),
                     operatorState.getOperatorID().toString(),
                     new NeverFireProcessingTimeService(),
+                    null,
                     keyContext,
                     keySerializer,
                     registry,

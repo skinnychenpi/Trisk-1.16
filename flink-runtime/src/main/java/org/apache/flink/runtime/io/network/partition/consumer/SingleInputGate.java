@@ -1092,7 +1092,8 @@ public class SingleInputGate extends IndexedInputGate {
     }
 
     public void setConsumedSubpartitionIndex(int consumedSubpartitionIndex) {
-        SubpartitionIndexRange newRange = new SubpartitionIndexRange(consumedSubpartitionIndex, consumedSubpartitionIndex);
+        SubpartitionIndexRange newRange =
+                new SubpartitionIndexRange(consumedSubpartitionIndex, consumedSubpartitionIndex);
         this.subpartitionIndexRange = newRange;
     }
 
@@ -1101,21 +1102,23 @@ public class SingleInputGate extends IndexedInputGate {
             for (InputChannel inputChannel : inputChannels.values()) {
                 try {
                     inputChannel.releaseAllResources();
-                }
-                catch (IOException e) {
-                    LOG.warn("{}: Error during release of channel resources: {}.",
-                            owningTaskName, e.getMessage(), e);
+                } catch (IOException e) {
+                    LOG.warn(
+                            "{}: Error during release of channel resources: {}.",
+                            owningTaskName,
+                            e.getMessage(),
+                            e);
                 }
             }
             this.inputChannels.clear();
         }
         this.numberOfInputChannels = numberOfInputChannels;
 
-//		this.networkBufferPool = null;
-//		this.bufferPool = null;
+        //		this.networkBufferPool = null;
+        //		this.bufferPool = null;
 
         // TODO: check whether we need to reinitialize the inputChannels hashmap
-//		this.inputChannels = new HashMap<>(numberOfInputChannels);
+        //		this.inputChannels = new HashMap<>(numberOfInputChannels);
 
         this.enqueuedInputChannelsWithData = new BitSet(numberOfInputChannels);
         this.channelsWithEndOfPartitionEvents = new BitSet(numberOfInputChannels);
@@ -1128,7 +1131,6 @@ public class SingleInputGate extends IndexedInputGate {
         this.pendingEvents.clear();
         this.retriggerLocalRequestTimer = null;
     }
-
 
     // ------------------------------------------------------------------------
 

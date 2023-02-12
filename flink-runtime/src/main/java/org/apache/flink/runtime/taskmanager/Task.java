@@ -1670,11 +1670,12 @@ public class Task
         return checkNotNull(invokable).finalizeRescale();
     }
 
-    public void assignNewState(KeyGroupRange keyGroupRange, int idInModel, JobManagerTaskRestore taskRestore) {
+    public void assignNewState(
+            KeyGroupRange keyGroupRange, int idInModel, JobManagerTaskRestore taskRestore) {
         try {
             LOG.info("++++++ assign new state");
             taskStateManager.updateTaskRestore(taskRestore);
-        } catch (NullPointerException e){
+        } catch (NullPointerException e) {
             e.printStackTrace();
             LOG.error("++++++ rescaleTask err", e);
             System.err.println("may not generate state now or it is a stateless task");

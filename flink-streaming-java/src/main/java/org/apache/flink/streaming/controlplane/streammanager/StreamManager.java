@@ -1365,59 +1365,124 @@ public class StreamManager extends FencedRpcEndpoint<StreamManagerId>
             Map<Integer, List<Integer>> finalDeployingTasks = reDeployingTasks;
             Map<Integer, List<Integer>> finalUpdateFunctionTasks = updateFunctionTasks;
             Map<Integer, List<SlotID>> finalSlotAllocation = targetSlotAllocation;
-            runAsync(() -> jobMasterGateway.callOperations( coordinator -> {
-                // prepare and synchronize among affected tasks
-                CompletableFuture<?> syncFuture = FutureUtils.completedVoidFuture()
-                                .thenCompose(o -> coordinator.prepareExecutionPlan(trisk.getExecutionPlan()))
-                                .thenCompose(o -> coordinator.synchronizeTasks(tasks, o));
-                List<CompletableFuture<?>> updateFutureList = new ArrayList<>();
-                // TODO: by far, our method only support one operator, need to extend to support multiple operators.
-                if (!finalUpdateKeyMappingTasks.isEmpty()) {
-                    updateFutureList.add(syncFuture.thenCompose(o -> coordinator.updateKeyMapping(finalUpdateKeyMappingTasks, o)));
-                }
-                if (!finalUpdateStateTasks.isEmpty()) {
-                    updateFutureList.add(syncFuture.thenCompose(o -> coordinator.updateState(finalUpdateStateTasks, o)));
-                }
-                if (!finalDeployingTasks.isEmpty()) {
-                    updateFutureList.add(syncFuture.thenCompose(o -> coordinator.updateTaskResources(finalDeployingTasks, finalSlotAllocation)));
-                }
-                if (!finalUpdateFunctionTasks.isEmpty()) {
-                    updateFutureList.add(syncFuture.thenCompose(o -> coordinator.updateFunction(finalUpdateFunctionTasks, o)));
-                }
+            runAsync(
+                    () ->
+                            jobMasterGateway.callOperations(
+                                    coordinator -> {
+                                        // prepare and synchronize among affected tasks
+                                        CompletableFuture<?> syncFuture =
+                                                FutureUtils.completedVoidFuture()
+                                                        .thenCompose(
+                                                                o ->
+                                                                        coordinator
+                                                                                .prepareExecutionPlan(
+                                                                                        trisk
+                                                                                                .getExecutionPlan()))
+                                                        .thenCompose(
+                                                                o ->
+                                                                        coordinator
+                                                                                .synchronizeTasks(
+                                                                                        tasks, o));
+                                        List<CompletableFuture<?>> updateFutureList =
+                                                new ArrayList<>();
+                                        // TODO: by far, our method only support one operator, need
+                                        // to extend to support multiple operators.
+                                        if (!finalUpdateKeyMappingTasks.isEmpty()) {
+                                            updateFutureList.add(
+                                                    syncFuture.thenCompose(
+                                                            o ->
+                                                                    coordinator.updateKeyMapping(
+                                                                            finalUpdateKeyMappingTasks,
+                                                                            o)));
+                                        }
+                                        if (!finalUpdateStateTasks.isEmpty()) {
+                                            updateFutureList.add(
+                                                    syncFuture.thenCompose(
+                                                            o ->
+                                                                    coordinator.updateState(
+                                                                            finalUpdateStateTasks,
+                                                                            o)));
+                                        }
+                                        if (!finalDeployingTasks.isEmpty()) {
+                                            updateFutureList.add(
+                                                    syncFuture.thenCompose(
+                                                            o ->
+                                                                    coordinator.updateTaskResources(
+                                                                            finalDeployingTasks,
+                                                                            finalSlotAllocation)));
+                                        }
+                                        if (!finalUpdateFunctionTasks.isEmpty()) {
+                                            updateFutureList.add(
+                                                    syncFuture.thenCompose(
+                                                            o ->
+                                                                    coordinator.updateFunction(
+                                                                            finalUpdateFunctionTasks,
+                                                                            o)));
+                                        }
 
-                // finish the reconfiguration after all asynchronous update completed
-                CompletableFuture<Void> finishFuture = FutureUtils.completeAll(updateFutureList)
-                        .thenCompose(o -> coordinator.resumeTasks());
-                if (finalSlotAllocation != null) {
-                    finishFuture = finishFuture
-                            .thenCompose(o -> jobMasterGateway.getAllSlots())
-                            .thenAccept(taskManagerSlots -> {
-                                // compute
-                                Map<String, List<AbstractSlot>> slotMap = new HashMap<>();
-                                for (TaskManagerSlotInformation taskManagerSlot : taskManagerSlots) {
-                                    AbstractSlot slot = FlinkSlot.fromTaskManagerSlot(taskManagerSlot);
-                                    List<AbstractSlot> slots = slotMap.computeIfAbsent(slot.getLocation(), k -> new ArrayList<>());
-                                    slots.add(slot);
-                                }
-                                trisk.getExecutionPlan().setSlotMap(slotMap);
-                            });
-                }
-                        return finishFuture.whenComplete((o, failure) -> {
-                            if (failure != null) {
-                                LOG.error("Reconfiguration failed: ", failure);
-                                failure.printStackTrace();
-                            }
-                            try {
-                                System.out.println("++++++ finished update");
-                                log.info("++++++ finished update");
-                                trisk.clearTransformations();
-                                trisk.notifyUpdateFinished(failure);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        });
-                    })
-            );
+                                        // finish the reconfiguration after all asynchronous update
+                                        // completed
+                                        CompletableFuture<Void> finishFuture =
+                                                FutureUtils.completeAll(updateFutureList)
+                                                        .thenCompose(
+                                                                o -> coordinator.resumeTasks());
+                                        if (finalSlotAllocation != null) {
+                                            finishFuture =
+                                                    finishFuture
+                                                            .thenCompose(
+                                                                    o ->
+                                                                            jobMasterGateway
+                                                                                    .getAllSlots())
+                                                            .thenAccept(
+                                                                    taskManagerSlots -> {
+                                                                        // compute
+                                                                        Map<
+                                                                                        String,
+                                                                                        List<
+                                                                                                AbstractSlot>>
+                                                                                slotMap =
+                                                                                        new HashMap<>();
+                                                                        for (TaskManagerSlotInformation
+                                                                                taskManagerSlot :
+                                                                                        taskManagerSlots) {
+                                                                            AbstractSlot slot =
+                                                                                    FlinkSlot
+                                                                                            .fromTaskManagerSlot(
+                                                                                                    taskManagerSlot);
+                                                                            List<AbstractSlot>
+                                                                                    slots =
+                                                                                            slotMap
+                                                                                                    .computeIfAbsent(
+                                                                                                            slot
+                                                                                                                    .getLocation(),
+                                                                                                            k ->
+                                                                                                                    new ArrayList<>());
+                                                                            slots.add(slot);
+                                                                        }
+                                                                        trisk.getExecutionPlan()
+                                                                                .setSlotMap(
+                                                                                        slotMap);
+                                                                    });
+                                        }
+                                        return finishFuture.whenComplete(
+                                                (o, failure) -> {
+                                                    if (failure != null) {
+                                                        LOG.error(
+                                                                "Reconfiguration failed: ",
+                                                                failure);
+                                                        failure.printStackTrace();
+                                                    }
+                                                    try {
+                                                        System.out.println(
+                                                                "++++++ finished update");
+                                                        log.info("++++++ finished update");
+                                                        trisk.clearTransformations();
+                                                        trisk.notifyUpdateFinished(failure);
+                                                    } catch (Exception e) {
+                                                        e.printStackTrace();
+                                                    }
+                                                });
+                                    }));
         } catch (Exception e) {
             LOG.error("Reconfiguration failed: ", e);
             e.printStackTrace();

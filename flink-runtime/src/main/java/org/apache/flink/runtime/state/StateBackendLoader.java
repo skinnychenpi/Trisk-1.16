@@ -405,6 +405,10 @@ public class StateBackendLoader {
                     Class.forName(className, false, classLoader)
                             .asSubclass(DelegatingStateBackend.class)
                             .getDeclaredConstructor(StateBackend.class);
+
+            System.out.println(
+                    "@StateBackendLoader: the loaded class constructor is: " + className);
+
             constructor.setAccessible(true);
             return constructor.newInstance(backend);
         } catch (ClassNotFoundException e) {

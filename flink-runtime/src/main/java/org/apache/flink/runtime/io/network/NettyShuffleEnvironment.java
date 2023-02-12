@@ -345,7 +345,10 @@ public class NettyShuffleEnvironment
                         partition.close();
                     } catch (Throwable t) {
                         ExceptionUtils.rethrowIfFatalError(t);
-                        LOG.error("++++++Failed to release result partition for task {}.", taskExecutorResourceId, t);
+                        LOG.error(
+                                "++++++Failed to release result partition for task {}.",
+                                taskExecutorResourceId,
+                                t);
                     }
                 }
             }

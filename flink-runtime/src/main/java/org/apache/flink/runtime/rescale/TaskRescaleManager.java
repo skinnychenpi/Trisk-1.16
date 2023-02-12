@@ -32,16 +32,13 @@ import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.taskmanager.TaskActions;
-
 import org.apache.flink.util.MathUtils;
 
 import org.slf4j.Logger;
@@ -105,20 +102,26 @@ public class TaskRescaleManager {
     }
 
     public void createNewResultPartitions() throws IOException {
-        //TODO: metrics will be created which should be reusable, need to understand and update the logic.
+        // TODO: metrics will be created which should be reusable, need to understand and update the
+        // logic.
 
         // produced intermediate result partitions
-        final ResultPartitionWriter[] newResultPartitionWriters = shuffleEnvironment.createResultPartitionWriters(
-                taskShuffleContext,
-                new ArrayList<>(rescaleMeta.getResultPartitionDeploymentDescriptors())).toArray(new ResultPartitionWriter[]{});
+        final ResultPartitionWriter[] newResultPartitionWriters =
+                shuffleEnvironment
+                        .createResultPartitionWriters(
+                                taskShuffleContext,
+                                new ArrayList<>(
+                                        rescaleMeta.getResultPartitionDeploymentDescriptors()))
+                        .toArray(new ResultPartitionWriter[] {});
 
         // TODO: This is a test version of Trisk 1.16.
-//        ResultPartitionWriter[] newPartitions = ConsumableNotifyingResultPartitionWriterDecorator.decorate(
-//                rescaleMeta.getResultPartitionDeploymentDescriptors(),
-//                newResultPartitionWriters,
-//                taskActions,
-//                jobId,
-//                resultPartitionConsumableNotifier);
+        //        ResultPartitionWriter[] newPartitions =
+        // ConsumableNotifyingResultPartitionWriterDecorator.decorate(
+        //                rescaleMeta.getResultPartitionDeploymentDescriptors(),
+        //                newResultPartitionWriters,
+        //                taskActions,
+        //                jobId,
+        //                resultPartitionConsumableNotifier);
 
         // setup partition, get bufferpool
         int index = 0;
@@ -145,48 +148,58 @@ public class TaskRescaleManager {
         return rescaleMeta.getRescaleOptions().isScalingGates();
     }
 
-    public void substituteInputGateChannels(SingleInputGate inputGate) throws IOException, InterruptedException {
+    public void substituteInputGateChannels(SingleInputGate inputGate)
+            throws IOException, InterruptedException {
         checkNotNull(rescaleMeta, "rescale component cannot be null");
 
         // only need to update input channels inside, no need to close and restart the input gate.
         InputGateDeploymentDescriptor igdd = rescaleMeta.getMatchedInputGateDescriptor(inputGate);
         ShuffleDescriptor[] shuffleDescriptors = checkNotNull(igdd.getShuffleDescriptors());
 
-        for(ShuffleDescriptor shuffleDescriptor: shuffleDescriptors){
-            for(InputChannel channel: inputGate.getInputChannels().values()){
-                if(channel.getPartitionId().equals(shuffleDescriptor.getResultPartitionID())){
+        for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+            for (InputChannel channel : inputGate.getInputChannels().values()) {
+                if (channel.getPartitionId().equals(shuffleDescriptor.getResultPartitionID())) {
                     // we should not request same partition twice
                     return;
                 }
             }
         }
 
-        inputGate.reset(calculateNumChannels(shuffleDescriptors.length,
-                inputGate.getSubpartitionIndexRange()));
+        inputGate.reset(
+                calculateNumChannels(
+                        shuffleDescriptors.length, inputGate.getSubpartitionIndexRange()));
 
         createChannels(inputGate, shuffleDescriptors);
         // Not needed for Flink 1.16.
-//        inputGate.assignExclusiveSegments();
+        //        inputGate.assignExclusiveSegments();
         inputGate.setupChannels();
         inputGate.requestPartitions();
     }
 
     private void createChannels(SingleInputGate inputGate, ShuffleDescriptor[] shuffleDescriptors) {
         @SuppressWarnings("deprecation")
-        InputChannelMetrics inputChannelMetrics = new InputChannelMetrics(taskShuffleContext.getInputGroup(), taskShuffleContext.getParentGroup());
+        InputChannelMetrics inputChannelMetrics =
+                new InputChannelMetrics(
+                        taskShuffleContext.getInputGroup(), taskShuffleContext.getParentGroup());
 
         // Create the input channels. There is one input channel for each consumed subpartition.
         InputChannel[] inputChannels =
                 new InputChannel
-                        [calculateNumChannels(shuffleDescriptors.length,
-                        inputGate.getSubpartitionIndexRange())];
+                        [calculateNumChannels(
+                                shuffleDescriptors.length, inputGate.getSubpartitionIndexRange())];
 
         int channelIdx = 0;
         for (int i = 0; i < shuffleDescriptors.length; i++) {
             for (int subpartitionIndex = inputGate.getSubpartitionIndexRange().getStartIndex();
-                 subpartitionIndex <= inputGate.getSubpartitionIndexRange().getEndIndex();
-                 ++subpartitionIndex) {
-                InputChannel inputChannel = createChannel(inputGate, channelIdx, shuffleDescriptors[i], subpartitionIndex, inputChannelMetrics);
+                    subpartitionIndex <= inputGate.getSubpartitionIndexRange().getEndIndex();
+                    ++subpartitionIndex) {
+                InputChannel inputChannel =
+                        createChannel(
+                                inputGate,
+                                channelIdx,
+                                shuffleDescriptors[i],
+                                subpartitionIndex,
+                                inputChannelMetrics);
                 inputChannels[channelIdx] = inputChannel;
                 channelIdx++;
             }
@@ -204,7 +217,8 @@ public class TaskRescaleManager {
                 NettyShuffleDescriptor.class,
                 shuffleDescriptor,
                 unknownShuffleDescriptor -> {
-                    throw new IllegalArgumentException("unknownShuffleDescriptor is not suppported now.");
+                    throw new IllegalArgumentException(
+                            "unknownShuffleDescriptor is not suppported now.");
                 },
                 nettyShuffleDescriptor ->
                         createKnownInputChannel(
@@ -214,7 +228,6 @@ public class TaskRescaleManager {
                                 consumedSubpartitionIndex,
                                 metrics));
     }
-
 
     private static int calculateNumChannels(
             int numShuffleDescriptors, SubpartitionIndexRange subpartitionIndexRange) {
@@ -233,18 +246,18 @@ public class TaskRescaleManager {
             // Consuming task is deployed to the same TaskManager as the partition => local
             // Unaligned Checkpoint not supported for now.
             // To update to unaligned checkpoint, need to change ChannelStateWriter to non NO_OP.
-                return new LocalInputChannel(
-                        inputGate,
-                        index,
-                        partitionId,
-                        consumedSubpartitionIndex,
-                        shuffleEnvironment.getResultPartitionManager(),
-                        taskEventDispatcher,
-                        shuffleEnvironment.getConfiguration().partitionRequestInitialBackoff(),
-                        shuffleEnvironment.getConfiguration().partitionRequestMaxBackoff(),
-                        metrics.getNumBytesInLocalCounter(),
-                        metrics.getNumBuffersInLocalCounter(),
-                        ChannelStateWriter.NO_OP);
+            return new LocalInputChannel(
+                    inputGate,
+                    index,
+                    partitionId,
+                    consumedSubpartitionIndex,
+                    shuffleEnvironment.getResultPartitionManager(),
+                    taskEventDispatcher,
+                    shuffleEnvironment.getConfiguration().partitionRequestInitialBackoff(),
+                    shuffleEnvironment.getConfiguration().partitionRequestMaxBackoff(),
+                    metrics.getNumBytesInLocalCounter(),
+                    metrics.getNumBuffersInLocalCounter(),
+                    ChannelStateWriter.NO_OP);
         } else {
             // Different instances => remote
             // Unaligned Checkpoint not supported for now.
@@ -275,7 +288,8 @@ public class TaskRescaleManager {
         return oldWriterCopies;
     }
 
-    // We cannot do it immediately because downstream's gate is still polling from the old partitions (barrier haven't pass to downstream)
+    // We cannot do it immediately because downstream's gate is still polling from the old
+    // partitions (barrier haven't pass to downstream)
     // so we store the oldWriterCopies and unregister them in next scaling.
     public void unregisterPartitions(ResultPartitionWriter[] oldWriterCopies) {
         if (storedOldWriterCopies != null) {
@@ -289,7 +303,9 @@ public class TaskRescaleManager {
 
     public void finish() {
         this.rescaleMeta = null;
-        LOG.info("++++++ taskRescaleManager finish, set meta to null for task " + taskNameWithSubtaskAndId);
+        LOG.info(
+                "++++++ taskRescaleManager finish, set meta to null for task "
+                        + taskNameWithSubtaskAndId);
     }
 
     private static class TaskRescaleMeta {
@@ -327,7 +343,8 @@ public class TaskRescaleManager {
             return rescaleOptions;
         }
 
-        public Collection<ResultPartitionDeploymentDescriptor> getResultPartitionDeploymentDescriptors() {
+        public Collection<ResultPartitionDeploymentDescriptor>
+                getResultPartitionDeploymentDescriptors() {
             return resultPartitionDeploymentDescriptors;
         }
 
@@ -377,7 +394,8 @@ public class TaskRescaleManager {
                 }
             }
             if (igdds.size() != 1) {
-                throw new IllegalStateException("Cannot find matched InputGateDeploymentDescriptor");
+                throw new IllegalStateException(
+                        "Cannot find matched InputGateDeploymentDescriptor");
             }
             gate.setConsumedSubpartitionIndex(igdds.get(0).getConsumedSubpartitionIndex());
             return igdds.get(0);

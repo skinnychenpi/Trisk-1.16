@@ -20,6 +20,7 @@ package org.apache.flink.streaming.runtime.io;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
+import org.apache.flink.runtime.rescale.reconfigure.TaskOperatorManager;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
@@ -35,4 +36,7 @@ public interface StreamTaskInput<T> extends PushingAsyncDataInput<T>, Closeable 
     /** Prepares to spill the in-flight input buffers as checkpoint snapshot. */
     CompletableFuture<Void> prepareSnapshot(
             ChannelStateWriter channelStateWriter, long checkpointId) throws CheckpointException;
+
+    default void setPauseActionController(
+            TaskOperatorManager.PauseActionController pauseActionController) {};
 }

@@ -197,28 +197,45 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
                         : UncompressedStreamCompressionDecorator.INSTANCE;
 
         for (Tuple2<Integer, Long> groupOffset : keyGroupOffsets) {
-            int keyGroupIndex = groupOffset.f0;
+            int alignedKeyGroupIndex = groupOffset.f0;
             long offset = groupOffset.f1;
 
-            if (!keyGroupRange.contains(keyGroupIndex)) {
-                LOG.debug(
+            if (!keyGroupRange.contains(alignedKeyGroupIndex)) {
+                LOG.info(
                         "Key group {} doesn't belong to this backend with key group range: {}",
-                        keyGroupIndex,
+                        alignedKeyGroupIndex,
                         keyGroupRange);
                 continue;
             }
 
             fsDataInputStream.seek(offset);
 
-            int writtenKeyGroupIndex = inView.readInt();
+            int hashedKeyGroup = inView.readInt();
             Preconditions.checkState(
-                    writtenKeyGroupIndex == keyGroupIndex, "Unexpected key-group in restore.");
+                    hashedKeyGroup == keyGroupRange.mapFromAlignedToHashed(alignedKeyGroupIndex),
+                    "Unexpected key-group in restore {%s : %s}.",
+                    hashedKeyGroup,
+                    keyGroupRange.mapFromAlignedToHashed((alignedKeyGroupIndex)));
+
+            LOG.info(
+                    "++++++-- keyGroupRange: "
+                            + keyGroupRange
+                            + ", alignedKeyGroupIndex: "
+                            + alignedKeyGroupIndex
+                            + ", offset: "
+                            + offset
+                            + ", hashedKeyGroup: "
+                            + hashedKeyGroup);
 
             try (InputStream kgCompressionInStream =
                     streamCompressionDecorator.decorateWithCompression(fsDataInputStream)) {
 
                 readKeyGroupStateData(
-                        kgCompressionInStream, kvStatesById, keyGroupIndex, numStates, readVersion);
+                        kgCompressionInStream,
+                        kvStatesById,
+                        alignedKeyGroupIndex,
+                        numStates,
+                        readVersion);
             }
         }
     }

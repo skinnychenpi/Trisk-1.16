@@ -59,7 +59,8 @@ public class ResultPartitionManager implements ResultPartitionProvider {
             }
 
             Map<ResultPartitionID, ResultPartition> partitions =
-                    registeredPartitionsByExecutionID.getOrDefault(partitionId.getProducerId(), new HashMap<>());
+                    registeredPartitionsByExecutionID.getOrDefault(
+                            partitionId.getProducerId(), new HashMap<>());
 
             partitions.put(partitionId, partition);
             registeredPartitionsByExecutionID.put(partitionId.getProducerId(), partitions);

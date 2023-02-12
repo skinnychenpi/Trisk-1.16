@@ -267,6 +267,7 @@ public interface Environment {
     default MetricsManager getMetricsManager() {
         return null;
     }
+
     default TaskOperatorManager getTaskOperatorManager() {
         return null;
     }

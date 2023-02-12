@@ -152,5 +152,5 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
 
     default void updateOutput(StreamTask<?, ?> containingTask, Output<StreamRecord<OUT>> output) {};
 
-    default void updateKeyGroupOffset(){};
+    default void updateKeyGroupOffset() {};
 }

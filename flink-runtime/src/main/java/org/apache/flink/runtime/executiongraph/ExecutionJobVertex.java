@@ -655,8 +655,7 @@ public class ExecutionJobVertex
         return removedTaskVertices;
     }
 
-    public void syncOldConfigInfo() {
-    }
+    public void syncOldConfigInfo() {}
 
     public void resetProducedDataSets() {
         for (IntermediateResult producedDataSet : producedDataSets) {

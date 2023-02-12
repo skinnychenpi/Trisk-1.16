@@ -34,7 +34,6 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
-import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointMetricsBuilder;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
@@ -510,14 +509,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         KeyGroupRange range = ((RuntimeEnvironment) getEnvironment()).keyGroupRange;
         TaskInfo taskInfo = getEnvironment().getTaskInfo();
 
-        this.assignedKeyGroupRange = range != null ? range :
-                KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
-                        taskInfo.getMaxNumberOfParallelSubtasks(),
-                        taskInfo.getNumberOfParallelSubtasks(),
-                        taskInfo.getIndexOfThisSubtask());
+        this.assignedKeyGroupRange =
+                range != null
+                        ? range
+                        : KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
+                                taskInfo.getMaxNumberOfParallelSubtasks(),
+                                taskInfo.getNumberOfParallelSubtasks(),
+                                taskInfo.getIndexOfThisSubtask());
 
         this.idInModel = getEnvironment().getTaskInfo().getIndexOfThisSubtask();
-        this.pauseActionController = ((RuntimeEnvironment)getEnvironment()).taskOperatorManager.getPauseActionController();
+        this.pauseActionController =
+                ((RuntimeEnvironment) getEnvironment())
+                        .taskOperatorManager.getPauseActionController();
     }
 
     private TimerService createTimerService(String timerThreadName) {
@@ -598,9 +601,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 return;
             case NEED_PAUSE:
                 CompletableFuture<?> resumeFuture = pauseActionController.getResumeFuture();
-                MailboxDefaultAction.Suspension suspendedDefaultAction = controller.suspendDefaultAction();
-                resumeFuture.thenRun(suspendedDefaultAction::resume)
-                        .thenRun(()->System.out.println(getName() + ": pauseActionController get resumed"));
+                MailboxDefaultAction.Suspension suspendedDefaultAction =
+                        controller.suspendDefaultAction();
+                resumeFuture
+                        .thenRun(suspendedDefaultAction::resume)
+                        .thenRun(
+                                () ->
+                                        System.out.println(
+                                                getName() + ": pauseActionController get resumed"));
                 return;
         }
 
@@ -1319,7 +1327,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                                 finishedOperators,
                                 this::isRunning);
 
-                        // Check whether the checkpoint is rescalepoint type, and do rescaling if it is.
+                        // Check whether the checkpoint is rescalepoint type, and do rescaling if it
+                        // is.
                         checkRescalePoint(checkpointMetaData, checkpointOptions);
                     });
 
@@ -1783,10 +1792,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     }
 
     // Trisk Methods
-    public CompletableFuture<Void> finalizeRescale(){
-        Future<Void> success = mailboxProcessor.getMainMailboxExecutor().submit(
-                this::initReconnect,
-                "initReconnect");
+    public CompletableFuture<Void> finalizeRescale() {
+        Future<Void> success =
+                mailboxProcessor
+                        .getMainMailboxExecutor()
+                        .submit(this::initReconnect, "initReconnect");
         return CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -1794,30 +1804,32 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                     } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
                     }
-                }
-        );
+                });
     }
 
     @Override
     public void updateKeyGroupRange(KeyGroupRange keyGroupRange) {
-        LOG.info("++++++ updateKeyGroupRange: "  + this.toString() + "  " + keyGroupRange);
+        LOG.info("++++++ updateKeyGroupRange: " + this.toString() + "  " + keyGroupRange);
 
-//		TaskRescaleManager rescaleManager = ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
+        //		TaskRescaleManager rescaleManager = ((RuntimeEnvironment)
+        // getEnvironment()).taskRescaleManager;
 
-        actionExecutor.runThrowing(() -> {
-            this.assignedKeyGroupRange.update(keyGroupRange);
+        actionExecutor.runThrowing(
+                () -> {
+                    this.assignedKeyGroupRange.update(keyGroupRange);
 
-            // not only update keygroup range, but also the offset in statetable.
-            updateKeyGroupOffset();
+                    // not only update keygroup range, but also the offset in statetable.
+                    updateKeyGroupOffset();
 
-//			rescaleManager.finish();
-        });
+                    //			rescaleManager.finish();
+                });
 
-//		throw new IllegalArgumentException("updateKeyGroupRange is not suppported now.");
+        //		throw new IllegalArgumentException("updateKeyGroupRange is not suppported now.");
     }
 
     private void updateKeyGroupOffset() {
-        Iterator<StreamOperatorWrapper<?,?>> allOperators = operatorChain.getAllOperators().iterator();
+        Iterator<StreamOperatorWrapper<?, ?>> allOperators =
+                operatorChain.getAllOperators().iterator();
 
         while (allOperators.hasNext()) {
             StreamOperator operator = allOperators.next().getStreamOperator();
@@ -1825,49 +1837,58 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 operator.updateKeyGroupOffset();
             }
         }
-//
-//        for (StreamOperator<?> operator : allOperators) {
-//            if (null != operator) {
-//                operator.updateKeyGroupOffset();
-//            }
-//        }
+        //
+        //        for (StreamOperator<?> operator : allOperators) {
+        //            if (null != operator) {
+        //                operator.updateKeyGroupOffset();
+        //            }
+        //        }
     }
 
     private void initReconnect() {
-        actionExecutor.runThrowing(() -> {
-            TaskRescaleManager rescaleManager = ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
+        actionExecutor.runThrowing(
+                () -> {
+                    TaskRescaleManager rescaleManager =
+                            ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
 
-            if (!rescaleManager.isScalingTarget()) {
-                return;
-            }
-            LOG.info("++++++ trigger target vertex rescaling: " + this.toString());
-            // this line is to record the time to redistribute
-            // long start = System.nanoTime();
-
-            try {
-                // update gate
-                if (rescaleManager.isScalingGates()) {
-                    for (InputGate gate : getEnvironment().getAllInputGates()) {
-                        rescaleManager.substituteInputGateChannels((SingleInputGate) ((InputGateWithMetrics) gate).getInputGate());
+                    if (!rescaleManager.isScalingTarget()) {
+                        return;
                     }
-                }
+                    LOG.info("++++++ trigger target vertex rescaling: " + this.toString());
+                    // this line is to record the time to redistribute
+                    // long start = System.nanoTime();
 
-                // update output (writers)
-                if (rescaleManager.isScalingPartitions()) {
-                    replaceResultPartitions(rescaleManager);
-                }
+                    try {
+                        // update gate
+                        if (rescaleManager.isScalingGates()) {
+                            for (InputGate gate : getEnvironment().getAllInputGates()) {
+                                rescaleManager.substituteInputGateChannels(
+                                        (SingleInputGate)
+                                                ((InputGateWithMetrics) gate).getInputGate());
+                            }
+                        }
 
-            } catch (Exception e) {
-                e.printStackTrace();
-                LOG.info("++++++ error", e);
-            } finally {
-                rescaleManager.finish();
-//			System.out.println("redistribute id: " + this.toString() + " time: " + (System.nanoTime() - start));
-                // complete reconnection, then start to process tuple,
-                // the total migration time is T(complete reconnection) - T(receive barrior).
-                System.out.println(this.toString() + " completed reconnection: " + System.currentTimeMillis());
-            }
-        });
+                        // update output (writers)
+                        if (rescaleManager.isScalingPartitions()) {
+                            replaceResultPartitions(rescaleManager);
+                        }
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        LOG.info("++++++ error", e);
+                    } finally {
+                        rescaleManager.finish();
+                        //			System.out.println("redistribute id: " + this.toString() + " time: " +
+                        // (System.nanoTime() - start));
+                        // complete reconnection, then start to process tuple,
+                        // the total migration time is T(complete reconnection) - T(receive
+                        // barrior).
+                        System.out.println(
+                                this.toString()
+                                        + " completed reconnection: "
+                                        + System.currentTimeMillis());
+                    }
+                });
     }
 
     protected void replaceResultPartitions(TaskRescaleManager rescaleManager) throws IOException {
@@ -1889,8 +1910,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     }
 
     protected void checkRescalePoint(
-            CheckpointMetaData checkpointMetaData,
-            CheckpointOptions checkpointOptions) {
+            CheckpointMetaData checkpointMetaData, CheckpointOptions checkpointOptions) {
 
         if (!checkpointOptions.getCheckpointType().isRescalepoint()) {
             return;
@@ -1899,8 +1919,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         // force append latest status into metrics queue.
         getMetricsManager().updateMetrics();
 
-        TaskOperatorManager operatorManager = ((RuntimeEnvironment) getEnvironment()).taskOperatorManager;
-        if(operatorManager.acknowledgeSyncRequest(checkpointMetaData.getCheckpointId())){
+        TaskOperatorManager operatorManager =
+                ((RuntimeEnvironment) getEnvironment()).taskOperatorManager;
+        if (operatorManager.acknowledgeSyncRequest(checkpointMetaData.getCheckpointId())) {
             // we could now pause the current processing
             try {
                 System.out.println(this.getName() + ": pause the current data processing");
@@ -1913,5 +1934,43 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
     public MetricsManager getMetricsManager() {
         return getEnvironment().getMetricsManager();
+    }
+
+    @Override
+    public void reinitializeState(KeyGroupRange keyGroupRange, int idInModel) {
+        LOG.info(
+                "++++++ let's reinitialize state: "
+                        + this.toString()
+                        + "  "
+                        + keyGroupRange
+                        + "  idInModel: "
+                        + idInModel);
+
+        try {
+            actionExecutor.runThrowing(
+                    () -> {
+                        this.assignedKeyGroupRange.update(keyGroupRange);
+                        this.idInModel = idInModel;
+
+                        operatorChain.initializeStateAndOpenOperators(
+                                createStreamTaskStateInitializer());
+
+                        getEnvironment()
+                                .getMetricsManager()
+                                .updateTaskId(
+                                        getEnvironment().getTaskInfo().getTaskNameWithSubtasks(),
+                                        idInModel);
+                        // we don't need to reconnect since we have separate api called resume
+                        //				initReconnect();
+                    });
+        } catch (Exception e) {
+            LOG.info("++++++ error", e);
+            throw new RuntimeException(e);
+        }
+        //		throw new IllegalArgumentException("reinitializeState is not suppported now.");
+    }
+
+    public KeyGroupRange getAssignedKeyGroupRange() {
+        return assignedKeyGroupRange;
     }
 }

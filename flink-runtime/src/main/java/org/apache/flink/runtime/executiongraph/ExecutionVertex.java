@@ -645,8 +645,7 @@ public class ExecutionVertex
     //        }
     //    }
 
-    // ---------------------------------------Trisk
-    // Methods------------------------------------------
+    // ---------------------------------------Trisk Methods------------------------------------
     public void assignKeyGroupRange(KeyGroupRange keyGroupRange) {
         this.keyGroupRange = keyGroupRange;
     }

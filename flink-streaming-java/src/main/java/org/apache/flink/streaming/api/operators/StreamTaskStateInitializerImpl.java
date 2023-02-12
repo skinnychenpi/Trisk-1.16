@@ -131,6 +131,7 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
             @Nonnull OperatorID operatorID,
             @Nonnull String operatorClassName,
             @Nonnull ProcessingTimeService processingTimeService,
+            @Nullable KeyGroupRange assignedKeyGroupRange,
             @Nonnull KeyContext keyContext,
             @Nullable TypeSerializer<?> keySerializer,
             @Nonnull CloseableRegistry streamTaskCloseableRegistry,
@@ -163,6 +164,7 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
             // -------------- Keyed State Backend --------------
             keyedStatedBackend =
                     keyedStatedBackend(
+                            assignedKeyGroupRange,
                             keySerializer,
                             operatorIdentifierText,
                             prioritizedOperatorSubtaskStates,
@@ -294,6 +296,7 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
     }
 
     protected <K> CheckpointableKeyedStateBackend<K> keyedStatedBackend(
+            KeyGroupRange assignedKeyGroupRange,
             TypeSerializer<K> keySerializer,
             String operatorIdentifierText,
             PrioritizedOperatorSubtaskState prioritizedOperatorSubtaskStates,
@@ -339,7 +342,9 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
                                                         operatorIdentifierText,
                                                         keySerializer,
                                                         taskInfo.getMaxNumberOfParallelSubtasks(),
-                                                        keyGroupRange,
+                                                        assignedKeyGroupRange,
+                                                        //
+                                                        //              keyGroupRange,
                                                         environment.getTaskKvStateRegistry(),
                                                         ttlTimeProvider,
                                                         metricGroup,

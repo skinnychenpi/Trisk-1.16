@@ -113,5 +113,5 @@ public interface TaskStateManager extends CheckpointListener, AutoCloseable {
     StateChangelogStorageView<?> getStateChangelogStorageView(
             Configuration configuration, ChangelogStateHandle changelogStateHandle);
 
-    default void updateTaskRestore(@Nonnull JobManagerTaskRestore jobManagerTaskRestore){}
+    default void updateTaskRestore(@Nonnull JobManagerTaskRestore jobManagerTaskRestore) {}
 }

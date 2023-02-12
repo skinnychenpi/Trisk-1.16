@@ -110,6 +110,7 @@ public class StreamOperatorStateHandlerTest {
                             new OperatorID(),
                             "whatever",
                             new TestProcessingTimeService(),
+                            null,
                             new UnUsedKeyContext(),
                             IntSerializer.INSTANCE,
                             closeableRegistry,

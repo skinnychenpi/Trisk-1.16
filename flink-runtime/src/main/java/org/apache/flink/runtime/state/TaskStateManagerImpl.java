@@ -36,7 +36,6 @@ import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.runtime.state.changelog.StateChangelogStorageView;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
 import org.apache.flink.util.ExceptionUtils;
-
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -291,7 +290,7 @@ public class TaskStateManagerImpl implements TaskStateManager {
 
     // Trisk Methods
     @Override
-    public void updateTaskRestore(@Nonnull JobManagerTaskRestore jobManagerTaskRestore){
+    public void updateTaskRestore(@Nonnull JobManagerTaskRestore jobManagerTaskRestore) {
         Preconditions.checkNotNull(jobManagerTaskRestore, "passed jobManagerTaskRestore is null");
         this.jobManagerTaskRestore = jobManagerTaskRestore;
     }

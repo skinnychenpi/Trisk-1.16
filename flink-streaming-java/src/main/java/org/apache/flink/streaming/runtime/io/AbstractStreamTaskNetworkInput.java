@@ -87,7 +87,8 @@ public abstract class AbstractStreamTaskNetworkInput<
         this.recordDeserializers = checkNotNull(recordDeserializers);
     }
 
-    public void setPauseActionController(TaskOperatorManager.PauseActionController pauseActionController) {
+    public void setPauseActionController(
+            TaskOperatorManager.PauseActionController pauseActionController) {
         this.pauseActionController = pauseActionController;
     }
 
@@ -131,7 +132,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                             "Finished BarrierHandler should be available");
                     return DataInputStatus.END_OF_INPUT;
                 }
-                if (this.pauseActionController != null && pauseActionController.ackIfPause()){
+                if (this.pauseActionController != null && pauseActionController.ackIfPause()) {
                     return DataInputStatus.NEED_PAUSE;
                 }
                 return DataInputStatus.NOTHING_AVAILABLE;

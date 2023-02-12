@@ -2267,13 +2267,19 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                 }
 
                 if (rescaleOptions.isRepartition()) {
-                    log.info("++++++ update task state: " + tdd.getSubtaskIndex() + "  " + tdd.getExecutionAttemptId());
+                    log.info(
+                            "++++++ update task state: "
+                                    + tdd.getSubtaskIndex()
+                                    + "  "
+                                    + tdd.getExecutionAttemptId());
                     task.assignNewState(
-                            tdd.getKeyGroupRange(),
-                            tdd.getIdInModel(),
-                            tdd.getTaskRestore());
+                            tdd.getKeyGroupRange(), tdd.getIdInModel(), tdd.getTaskRestore());
                 } else if (rescaleOptions.isUpdateKeyGroupRange()) {
-                    log.info("++++++ update task keyGroupRange for subtask: " + tdd.getSubtaskIndex() + "  " + tdd.getExecutionAttemptId());
+                    log.info(
+                            "++++++ update task keyGroupRange for subtask: "
+                                    + tdd.getSubtaskIndex()
+                                    + "  "
+                                    + tdd.getExecutionAttemptId());
                     task.updateKeyGroupRange(tdd.getKeyGroupRange());
                 } else {
                     // author: @hya

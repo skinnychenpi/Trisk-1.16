@@ -40,6 +40,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.metrics.groups.InternalOperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.StateInitializationContext;
@@ -265,12 +266,14 @@ public abstract class AbstractStreamOperator<OUT>
         final StreamTask<?, ?> containingTask = Preconditions.checkNotNull(getContainingTask());
         final CloseableRegistry streamTaskCloseableRegistry =
                 Preconditions.checkNotNull(containingTask.getCancelables());
+        final KeyGroupRange assignedKeyGroupRange = containingTask.getAssignedKeyGroupRange();
 
         final StreamOperatorStateContext context =
                 streamTaskStateManager.streamOperatorStateContext(
                         getOperatorID(),
                         getClass().getSimpleName(),
                         getProcessingTimeService(),
+                        assignedKeyGroupRange,
                         this,
                         keySerializer,
                         streamTaskCloseableRegistry,
@@ -694,15 +697,24 @@ public abstract class AbstractStreamOperator<OUT>
             this.output = output;
         }
     }
+
     @Override
     public void updateOutput(StreamTask<?, ?> containingTask, Output<StreamRecord<OUT>> output) {
         if (this.output instanceof UpdatableOutput) {
             try {
-                OperatorMetricGroup operatorMetricGroup = containingTask.getEnvironment()
-                        .getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorName());
-                output = new CountingOutput<>(output, operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
+                OperatorMetricGroup operatorMetricGroup =
+                        containingTask
+                                .getEnvironment()
+                                .getMetricGroup()
+                                .getOrAddOperator(config.getOperatorID(), config.getOperatorName());
+                output =
+                        new CountingOutput<>(
+                                output,
+                                operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
             } catch (Exception e) {
-                LOG.warn("An error occurred while instantiating task metrics during updating output.", e);
+                LOG.warn(
+                        "An error occurred while instantiating task metrics during updating output.",
+                        e);
             }
 
             ((UpdatableOutput<OUT>) this.output).updateOutput(output);

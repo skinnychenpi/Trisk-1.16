@@ -31,6 +31,7 @@ import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.sort.SortingDataInput;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.io.AbstractStreamTaskNetworkInput;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput;
 import org.apache.flink.streaming.runtime.io.StreamOneInputProcessor;
 import org.apache.flink.streaming.runtime.io.StreamTaskInput;
@@ -192,19 +193,25 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         TypeSerializer<IN> inSerializer =
                 configuration.getTypeSerializerIn1(getUserCodeClassLoader());
 
-        return StreamTaskNetworkInputFactory.create(
-                inputGate,
-                inSerializer,
-                getEnvironment().getIOManager(),
-                statusWatermarkValve,
-                0,
-                getEnvironment().getTaskStateManager().getInputRescalingDescriptor(),
-                gateIndex ->
-                        configuration
-                                .getInPhysicalEdges(getUserCodeClassLoader())
-                                .get(gateIndex)
-                                .getPartitioner(),
-                getEnvironment().getTaskInfo());
+        StreamTaskInput<IN> networkInput =
+                StreamTaskNetworkInputFactory.create(
+                        inputGate,
+                        inSerializer,
+                        getEnvironment().getIOManager(),
+                        statusWatermarkValve,
+                        0,
+                        getEnvironment().getTaskStateManager().getInputRescalingDescriptor(),
+                        gateIndex ->
+                                configuration
+                                        .getInPhysicalEdges(getUserCodeClassLoader())
+                                        .get(gateIndex)
+                                        .getPartitioner(),
+                        getEnvironment().getTaskInfo());
+
+        if (networkInput instanceof AbstractStreamTaskNetworkInput<?, ?>) {
+            networkInput.setPauseActionController(this.pauseActionController);
+        }
+        return networkInput;
     }
 
     /**

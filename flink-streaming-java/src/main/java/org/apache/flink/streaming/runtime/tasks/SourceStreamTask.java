@@ -20,7 +20,6 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
-import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.checkpoint.SavepointType;
@@ -319,14 +318,14 @@ public class SourceStreamTask<
     }
 
     protected void checkRescalePoint(
-            CheckpointMetaData checkpointMetaData,
-            CheckpointOptions checkpointOptions) {
+            CheckpointMetaData checkpointMetaData, CheckpointOptions checkpointOptions) {
 
         if (!checkpointOptions.getCheckpointType().isRescalepoint()) {
             return;
         }
         // we could now pause the data passing process
-        TaskRescaleManager rescaleManager = ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
+        TaskRescaleManager rescaleManager =
+                ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
         if (rescaleManager.isScalingTarget()) {
             try {
                 // update output (writers)

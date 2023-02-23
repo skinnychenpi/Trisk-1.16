@@ -21,6 +21,8 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.rescale.RescaleID;
 import org.apache.flink.runtime.rescale.RescaleOptions;
 import org.apache.flink.runtime.rescale.RescalepointAcknowledgeListener;
+import org.apache.flink.runtime.scheduler.SchedulerBase;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -29,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,8 +51,12 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
     private static final Logger LOG = LoggerFactory.getLogger(ReconfigurationCoordinator.class);
     private SynchronizeOperation currentSyncOp = null;
 
-    public ReconfigurationCoordinator(JobGraph jobGraph, ExecutionGraph executionGraph) {
+    private final SchedulerBase scheduler;
+
+    public ReconfigurationCoordinator(
+            JobGraph jobGraph, ExecutionGraph executionGraph, SchedulerBase scheduler) {
         super(jobGraph, (DefaultExecutionGraph) executionGraph);
+        this.scheduler = scheduler;
     }
 
     @Override
@@ -144,7 +151,251 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
     @Override
     public CompletableFuture<Void> updateTaskResources(
             Map<Integer, List<Integer>> tasks, Map<Integer, List<SlotID>> slotIds) {
-        return null;
+        // TODO: By far we only support horizontal scaling, vertival scaling is not included.
+
+        int operatorID = tasks.keySet().iterator().next();
+        JobVertexID tgtJobVertexID = rawVertexIDToJobVertexID(operatorID);
+        ExecutionJobVertex tgtJobVertex = executionGraph.getJobVertex(tgtJobVertexID);
+
+        CompletableFuture<Void> deployTaskFuture;
+        if (slotIds == null) {
+            // allocate slot id that specified
+            deployTaskFuture = deployTasks(operatorID);
+        } else {
+            // the parallelism parameter is useless
+            List<SlotID> targetSlotIDs =
+                    slotIds.get(operatorID); // slotIds是一个size为0的map,因此这里get的结果是null
+            deployTaskFuture = deployTasks(operatorID, 0, targetSlotIDs);
+        }
+        return deployTaskFuture
+                .thenCompose(execution -> updateDownstreamGates(operatorID))
+                .thenCompose(execution -> cancelTasks(operatorID));
+    }
+
+    public CompletableFuture<Void> deployTasks(int operatorID) {
+        // TODO: add the task to the checkpointCoordinator
+        System.out.println("deploying... tasks of " + operatorID);
+        LOG.info("++++++ deploying tasks" + operatorID);
+        JobVertexID jobVertexID = rawVertexIDToJobVertexID(operatorID);
+        ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexID);
+        OperatorWorkloadsAssignment remappingAssignment =
+                workloadsAssignmentHandler.getHeldOperatorWorkloadsAssignment(operatorID);
+        Preconditions.checkNotNull(jobVertex, "Execution job vertex not found: " + jobVertexID);
+        jobVertex.cleanBeforeRescale();
+
+        Collection<CompletableFuture<Execution>> allocateSlotFutures =
+                new ArrayList<>(jobVertex.getParallelism());
+
+        if (!createdCandidates.containsKey(operatorID)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        final List<ExecutionVertexID> executionsToDeploy =
+                createdCandidates.get(operatorID).stream()
+                        .map(executionVertex -> executionVertex.getID())
+                        .collect(Collectors.toList());
+
+        for (ExecutionVertex ev : createdCandidates.get(operatorID)) {
+            Execution execution = ev.getCurrentExecutionAttempt();
+            execution.updateBeforeDeploy(
+                    remappingAssignment.getAlignedKeyGroupRange(
+                            execution.getParallelSubtaskIndex()),
+                    remappingAssignment.getIdInModel(execution.getParallelSubtaskIndex()));
+        }
+
+        scheduler.allocateSlotsAndDeploy(executionsToDeploy);
+
+        CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+        assert checkpointCoordinator != null;
+        checkpointCoordinator.stopCheckpointScheduler();
+        checkNotNull(checkpointCoordinator);
+
+        if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+            checkpointCoordinator.startCheckpointScheduler();
+        }
+
+        // clear all created candidates
+        createdCandidates.get(operatorID).clear();
+
+        //        for (ExecutionVertex vertex : createdCandidates.get(operatorID)) {
+        //            Execution executionAttempt = vertex.getCurrentExecutionAttempt();
+        //
+        // allocateSlotFutures.add(executionAttempt.allocateAndAssignSlotForExecution(rescaleID));
+        //        }
+        //
+        //        return FutureUtils.combineAll(allocateSlotFutures)
+        //                .whenComplete((executions, throwable) -> {
+        //                    if (throwable != null) {
+        //                        throwable.printStackTrace();
+        //                        throw new CompletionException(throwable);
+        //                    }
+        //                }).thenCompose(executions -> {
+        //                    Collection<CompletableFuture<Void>> deployFutures =
+        //                            new ArrayList<>(jobVertex.getParallelism());
+        //                    for (Execution execution : executions) {
+        //                        try {
+        //                            deployFutures.add(execution.deploy(
+        //
+        // remappingAssignment.getAlignedKeyGroupRange(execution.getParallelSubtaskIndex()),
+        //
+        // remappingAssignment.getIdInModel(execution.getParallelSubtaskIndex())));
+        //                        } catch (JobException e) {
+        //                            e.printStackTrace();
+        //                        }
+        //                    }
+        //
+        //                    CheckpointCoordinator checkpointCoordinator =
+        // executionGraph.getCheckpointCoordinator();
+        //                    assert checkpointCoordinator != null;
+        //                    checkpointCoordinator.stopCheckpointScheduler();
+        //                    checkNotNull(checkpointCoordinator);
+        //
+        //                    if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+        //                        checkpointCoordinator.startCheckpointScheduler();
+        //                    }
+        //
+        //                    // clear all created candidates
+        //                    createdCandidates.get(operatorID).clear();
+        //
+        //                    return FutureUtils.waitForAll(deployFutures);
+        //                });
+        return FutureUtils.completeAll(allocateSlotFutures);
+    }
+
+    private CompletableFuture<Void> deployTasks(
+            int operatorID, int oldParallelism, List<SlotID> slotIds) {
+        // TODO: add the task to the checkpointCoordinator
+        System.out.println("deploying... tasks of " + operatorID);
+        LOG.info("++++++ deploying tasks" + operatorID);
+        JobVertexID jobVertexID = rawVertexIDToJobVertexID(operatorID);
+        ExecutionJobVertex jobVertex = executionGraph.getJobVertex(jobVertexID);
+        OperatorWorkloadsAssignment remappingAssignment =
+                workloadsAssignmentHandler.getHeldOperatorWorkloadsAssignment(operatorID);
+        Preconditions.checkNotNull(jobVertex, "Execution job vertex not found: " + jobVertexID);
+        jobVertex.cleanBeforeRescale();
+
+        Collection<CompletableFuture<Execution>> allocateSlotFutures =
+                new ArrayList<>(jobVertex.getParallelism() - oldParallelism);
+
+        if (slotIds != null) {
+            List<ExecutionVertex> vertices = createdCandidates.get(operatorID);
+            Preconditions.checkState(
+                    vertices.size() == slotIds.size(),
+                    "number of given slot is not equal with createdCandidates");
+            //            for (int i = 0; i < vertices.size(); i++) {
+            //                Execution executionAttempt =
+            // vertices.get(i).getCurrentExecutionAttempt();
+            //                LOG.info("++++++ allocating slots: " + slotIds.get(i));
+            //
+            // allocateSlotFutures.add(executionAttempt.allocateAndAssignSlotForExecution(rescaleID,
+            // slotIds.get(i)));
+            //            }
+            LOG.info("++++++ Currently doesn't support deploy subtasks on given slots.");
+        } else {
+            //            for (ExecutionVertex vertex : createdCandidates.get(operatorID)) { //
+            // flow会来到这里，因为slotIds是null,同时，这里的createdCandidates内部存储的是剩下的8个新增的task
+            //                Execution executionAttempt = vertex.getCurrentExecutionAttempt();
+            //
+            // allocateSlotFutures.add(executionAttempt.allocateAndAssignSlotForExecution(rescaleID));
+            //            }
+            final List<ExecutionVertexID> executionsToDeploy =
+                    createdCandidates.get(operatorID).stream()
+                            .map(executionVertex -> executionVertex.getID())
+                            .collect(Collectors.toList());
+
+            for (ExecutionVertex ev : createdCandidates.get(operatorID)) {
+                Execution execution = ev.getCurrentExecutionAttempt();
+                execution.updateBeforeDeploy(
+                        remappingAssignment.getAlignedKeyGroupRange(
+                                execution.getParallelSubtaskIndex()),
+                        remappingAssignment.getIdInModel(execution.getParallelSubtaskIndex()));
+            }
+
+            scheduler.allocateSlotsAndDeploy(executionsToDeploy);
+
+            CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+            assert checkpointCoordinator != null;
+            checkpointCoordinator.stopCheckpointScheduler();
+            checkNotNull(checkpointCoordinator);
+
+            if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+                checkpointCoordinator.startCheckpointScheduler();
+            }
+
+            // clear all created candidates
+            createdCandidates.get(operatorID).clear();
+        }
+
+        return FutureUtils.completeAll(allocateSlotFutures);
+
+        //        return FutureUtils.combineAll(allocateSlotFutures)
+        //                .whenComplete((executions, throwable) -> {
+        //                    if (throwable != null) {
+        //                        throwable.printStackTrace();
+        //                        throw new CompletionException(throwable);
+        //                    }
+        //                }).thenCompose(executions -> {
+        //                    Collection<CompletableFuture<Void>> deployFutures =
+        //                            new ArrayList<>(jobVertex.getParallelism() - oldParallelism);
+        //                    for (Execution execution : executions) { // Here the executions are
+        // the rest 8 new created execution.
+        //                        try {
+        //                            deployFutures.add(execution.deploy(
+        //
+        // remappingAssignment.getAlignedKeyGroupRange(execution.getParallelSubtaskIndex()),
+        //
+        // remappingAssignment.getIdInModel(execution.getParallelSubtaskIndex())));
+        //                        } catch (JobException e) {
+        //                            e.printStackTrace();
+        //                        }
+        //                    }
+        //
+        //                    CheckpointCoordinator checkpointCoordinator =
+        // executionGraph.getCheckpointCoordinator();
+        //                    assert checkpointCoordinator != null;
+        //                    checkpointCoordinator.stopCheckpointScheduler();
+        //                    checkNotNull(checkpointCoordinator);
+        //
+        // checkpointCoordinator.addVertices(createdCandidates.get(operatorID).toArray(new
+        // ExecutionVertex[0]), false);
+        //
+        //                    if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+        //                        checkpointCoordinator.startCheckpointScheduler();
+        //                    }
+        //
+        //                    // clear all created candidates
+        //                    createdCandidates.get(operatorID).clear();
+        //
+        //                    return FutureUtils.waitForAll(deployFutures);
+        //                });
+    }
+
+    public CompletableFuture<Void> cancelTasks(int operatorID) {
+        LOG.info("++++++ canceling tasks" + operatorID);
+
+        if (!removedCandidates.containsKey(operatorID)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        Collection<CompletableFuture<?>> removeFutures = new ArrayList<>(removedCandidates.size());
+
+        for (ExecutionVertex vertex : removedCandidates.get(operatorID)) {
+            CompletableFuture<?> removedTask = vertex.cancel();
+            removeFutures.add(removedTask);
+        }
+
+        CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+        assert checkpointCoordinator != null;
+        checkpointCoordinator.stopCheckpointScheduler();
+        checkNotNull(checkpointCoordinator);
+
+        if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+            checkpointCoordinator.startCheckpointScheduler();
+        }
+
+        // clear all removed candidates
+        removedCandidates.get(operatorID).clear();
+
+        return FutureUtils.waitForAll(removeFutures);
     }
 
     @Override
@@ -753,6 +1004,7 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
                                     }
                                 }
                             } catch (Exception e) {
+                                System.out.println("The error checkpoint is: " + checkpoint);
                                 throw new CompletionException(e);
                             }
                         });

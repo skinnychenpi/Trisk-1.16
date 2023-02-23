@@ -235,7 +235,7 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
                 new BoundedFIFOQueue<>(
                         jobMasterConfiguration.getInteger(WebOptions.MAX_EXCEPTION_HISTORY_SIZE));
 
-        this.jobRescaleCoordinator = new JobRescaleCoordinator(jobGraph, executionGraph);
+        this.jobRescaleCoordinator = new JobRescaleCoordinator(jobGraph, executionGraph, this);
     }
 
     @Override
@@ -1058,4 +1058,6 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
     JobID getJobId() {
         return jobGraph.getJobID();
     }
+
+    public abstract void allocateSlotsAndDeploy(List<ExecutionVertexID> executionsToDeploy);
 }

@@ -103,7 +103,15 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
     protected void emit(T record, int targetSubpartition) throws IOException {
         checkErroneous();
-
+        //        if (targetSubpartition > 2) {
+        //            LOG.info(
+        //                    "!!!!!!!!!! ++++++++++ Record: "
+        //                            + record
+        //                            + " send from: "
+        //                            + outputFlusher
+        //                            + " to target subpartition: "
+        //                            + targetSubpartition);
+        //        }
         targetPartition.emitRecord(serializeRecord(serializer, record), targetSubpartition);
 
         if (flushAlways) {

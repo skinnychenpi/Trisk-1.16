@@ -540,6 +540,16 @@ public class SingleInputGate extends IndexedInputGate {
                 IntermediateResultPartitionID partitionId =
                         inputChannel.getPartitionId().getPartitionId();
                 int subpartitionIndex = inputChannel.getConsumedSubpartitionIndex();
+//                LOG.info(
+//                        "!!!!!!!!!! The current inputChannels map is: "
+//                                + "@Input gate: "
+//                                + this
+//                                + "key:(subpartition info) ("
+//                                + partitionId
+//                                + ","
+//                                + subpartitionIndex
+//                                + ") value: "
+//                                + inputChannel.channelInfo);
                 if (inputChannels.put(
                                         new SubpartitionInfo(partitionId, subpartitionIndex),
                                         inputChannel)

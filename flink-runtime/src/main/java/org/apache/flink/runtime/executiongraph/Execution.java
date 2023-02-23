@@ -1749,4 +1749,9 @@ public class Execution
 
         return scheduleRescale(rescaleId, rescaleOptions, keyGroupRange);
     }
+
+    public void updateBeforeDeploy(KeyGroupRange alignedKeyGroupRange, int idInModel) {
+        getVertex().assignKeyGroupRange(alignedKeyGroupRange);
+        getVertex().setIdInModel(idInModel);
+    }
 }

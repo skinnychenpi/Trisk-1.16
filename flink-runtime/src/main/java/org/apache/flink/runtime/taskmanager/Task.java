@@ -1646,12 +1646,11 @@ public class Task
             RescaleOptions rescaleOptions,
             Collection<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
             Collection<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors) {
-        // TODO: Currently comment, will be developed later.
-        //        taskRescaleManager.prepareRescaleMeta(
-        //                rescaleId,
-        //                rescaleOptions,
-        //                resultPartitionDeploymentDescriptors,
-        //                inputGateDeploymentDescriptors);
+        taskRescaleManager.prepareRescaleMeta(
+                rescaleId,
+                rescaleOptions,
+                resultPartitionDeploymentDescriptors,
+                inputGateDeploymentDescriptors);
     }
 
     public void prepareSync(int syncFlag) {

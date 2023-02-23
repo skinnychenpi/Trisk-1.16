@@ -85,7 +85,6 @@ public class ResultPartitionManager implements ResultPartitionProvider {
             }
 
             LOG.debug("Requesting subpartition {} of {}.", subpartitionIndex, partition);
-
             subpartitionView =
                     partition.createSubpartitionView(subpartitionIndex, availabilityListener);
         }

@@ -7,6 +7,9 @@ import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,7 +18,8 @@ import java.util.Map;
 public class AssignedKeyGroupStreamPartitioner<T, K> extends StreamPartitioner<T>
         implements ConfigurableStreamPartitioner {
     private static final long serialVersionUID = 1L;
-
+    private static final Logger LOG =
+            LoggerFactory.getLogger(AssignedKeyGroupStreamPartitioner.class);
     private final KeySelector<T, K> keySelector;
 
     private int maxParallelism;
@@ -47,6 +51,14 @@ public class AssignedKeyGroupStreamPartitioner<T, K> extends StreamPartitioner<T
 
         int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(key, maxParallelism);
         int selectedChannel = assignKeyToOperator.get(keyGroup);
+        LOG.info(
+                "!!!!!!!!!! Record: ("
+                        + key
+                        + ","
+                        + keyGroup
+                        + ")"
+                        + "channel: "
+                        + selectedChannel);
         Preconditions.checkState(
                 selectedChannel >= 0 && selectedChannel < numberOfChannels,
                 "selected channel out of range , "

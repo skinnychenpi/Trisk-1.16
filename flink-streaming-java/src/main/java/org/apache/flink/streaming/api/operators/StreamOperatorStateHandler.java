@@ -376,6 +376,24 @@ public class StreamOperatorStateHandler {
         }
     }
 
+    public void setCurrentKey(Object key, String operatorName) {
+        if (keyedStateBackend != null) {
+            try {
+                // need to work around type restrictions
+                @SuppressWarnings("rawtypes")
+                CheckpointableKeyedStateBackend rawBackend = keyedStateBackend;
+
+                rawBackend.setCurrentKey(key);
+            } catch (Exception e) {
+                throw new RuntimeException(
+                        "Exception occurred while setting the current key context."
+                                + "Operator: "
+                                + operatorName,
+                        e);
+            }
+        }
+    }
+
     public Object getCurrentKey() {
         if (keyedStateBackend != null) {
             return keyedStateBackend.getCurrentKey();

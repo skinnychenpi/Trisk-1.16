@@ -1809,7 +1809,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
     @Override
     public void updateKeyGroupRange(KeyGroupRange keyGroupRange) {
-        LOG.info("++++++ updateKeyGroupRange: " + this.toString() + "  " + keyGroupRange);
+        LOG.info(
+                "++++++ updateKeyGroupRange: "
+                        + this.toString()
+                        + "  "
+                        + keyGroupRange
+                        + "map(hash -> align): "
+                        + keyGroupRange.getFromHashedToAligned());
 
         //		TaskRescaleManager rescaleManager = ((RuntimeEnvironment)
         // getEnvironment()).taskRescaleManager;
@@ -1861,6 +1867,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                     try {
                         // update gate
                         if (rescaleManager.isScalingGates()) {
+                            LOG.info(
+                                    "!!!!!!!!!! Update Gate for task: "
+                                            + this.getName()
+                                            + "with gates: "
+                                            + getEnvironment().getAllInputGates());
                             for (InputGate gate : getEnvironment().getAllInputGates()) {
                                 rescaleManager.substituteInputGateChannels(
                                         (SingleInputGate)
@@ -1943,6 +1954,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                         + this.toString()
                         + "  "
                         + keyGroupRange
+                        + "map(hash -> aligned) : "
+                        + keyGroupRange.getFromHashedToAligned()
                         + "  idInModel: "
                         + idInModel);
 

@@ -180,7 +180,7 @@ public abstract class AbstractStreamOperator<OUT>
             this.metrics = UnregisteredMetricGroups.createUnregisteredOperatorMetricGroup();
             this.output = output;
         }
-
+        this.output = new UpdatableOutput<>(output);
         this.combinedWatermark = IndexedCombinedWatermarkStatus.forInputsCount(2);
         try {
             Configuration taskManagerConfig = environment.getTaskManagerInfo().getConfiguration();
@@ -510,7 +510,7 @@ public abstract class AbstractStreamOperator<OUT>
     }
 
     public void setCurrentKey(Object key) {
-        stateHandler.setCurrentKey(key);
+        stateHandler.setCurrentKey(key, this.getOperatorName());
     }
 
     public Object getCurrentKey() {
@@ -719,7 +719,9 @@ public abstract class AbstractStreamOperator<OUT>
 
             ((UpdatableOutput<OUT>) this.output).updateOutput(output);
         } else {
-            LOG.error("++++++ Cannot updateOutput since output is not instance of UpdatableOutput");
+            LOG.error(
+                    "++++++ Cannot updateOutput since output is not instance of UpdatableOutput: "
+                            + containingTask);
             // TODO scaling : hanle error using a more proper way
         }
     }

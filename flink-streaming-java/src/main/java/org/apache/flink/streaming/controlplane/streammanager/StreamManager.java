@@ -28,8 +28,6 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.controlplane.ExecutionPlanAndJobGraphUpdaterFactory;
 import org.apache.flink.runtime.controlplane.PrimitiveOperation;
 import org.apache.flink.runtime.controlplane.abstraction.ExecutionPlan;
-import org.apache.flink.runtime.controlplane.abstraction.resource.AbstractSlot;
-import org.apache.flink.runtime.controlplane.abstraction.resource.FlinkSlot;
 import org.apache.flink.runtime.controlplane.streammanager.StreamManagerGateway;
 import org.apache.flink.runtime.controlplane.streammanager.StreamManagerId;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
@@ -48,7 +46,6 @@ import org.apache.flink.runtime.rescale.reconfigure.JobGraphRescaler;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdActions;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistration;
-import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerSlotInformation;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.FencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -1403,67 +1400,134 @@ public class StreamManager extends FencedRpcEndpoint<StreamManagerId>
                                                                             finalUpdateStateTasks,
                                                                             o)));
                                         }
-                                        if (!finalDeployingTasks.isEmpty()) {
-                                            updateFutureList.add(
-                                                    syncFuture.thenCompose(
-                                                            o ->
-                                                                    coordinator.updateTaskResources(
-                                                                            finalDeployingTasks,
-                                                                            finalSlotAllocation)));
-                                        }
-                                        if (!finalUpdateFunctionTasks.isEmpty()) {
-                                            updateFutureList.add(
-                                                    syncFuture.thenCompose(
-                                                            o ->
-                                                                    coordinator.updateFunction(
-                                                                            finalUpdateFunctionTasks,
-                                                                            o)));
-                                        }
+                                        //                                        if
+                                        // (!finalDeployingTasks.isEmpty()) {
+                                        //
+                                        // updateFutureList.add(
+                                        //
+                                        // syncFuture.thenCompose(
+                                        //
+                                        //  o ->
+                                        //
+                                        //          coordinator.updateTaskResources(
+                                        //
+                                        //                  finalDeployingTasks,
+                                        //
+                                        //                  finalSlotAllocation)));
+                                        //                                        }
+                                        //                                        if
+                                        // (!finalUpdateFunctionTasks.isEmpty()) {
+                                        //
+                                        // updateFutureList.add(
+                                        //
+                                        // syncFuture.thenCompose(
+                                        //
+                                        //  o ->
+                                        //
+                                        //          coordinator.updateFunction(
+                                        //
+                                        //                  finalUpdateFunctionTasks,
+                                        //
+                                        //                  o)));
+                                        //                                        }
+                                        //
+                                        //                                        // finish the
+                                        // reconfiguration after all asynchronous update
+                                        //                                        // completed
+                                        //
+                                        // CompletableFuture<Void> finishFuture =
+                                        //
+                                        // FutureUtils.completeAll(updateFutureList)
+                                        //
+                                        // .thenCompose(
+                                        //
+                                        //      o -> coordinator.resumeTasks());
 
-                                        // finish the reconfiguration after all asynchronous update
-                                        // completed
+                                        // TEST ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
                                         CompletableFuture<Void> finishFuture =
-                                                FutureUtils.completeAll(updateFutureList)
-                                                        .thenCompose(
-                                                                o -> coordinator.resumeTasks());
-                                        if (finalSlotAllocation != null) {
-                                            finishFuture =
-                                                    finishFuture
-                                                            .thenCompose(
-                                                                    o ->
-                                                                            jobMasterGateway
-                                                                                    .getAllSlots())
-                                                            .thenAccept(
-                                                                    taskManagerSlots -> {
-                                                                        // compute
-                                                                        Map<
-                                                                                        String,
-                                                                                        List<
-                                                                                                AbstractSlot>>
-                                                                                slotMap =
-                                                                                        new HashMap<>();
-                                                                        for (TaskManagerSlotInformation
-                                                                                taskManagerSlot :
-                                                                                        taskManagerSlots) {
-                                                                            AbstractSlot slot =
-                                                                                    FlinkSlot
-                                                                                            .fromTaskManagerSlot(
-                                                                                                    taskManagerSlot);
-                                                                            List<AbstractSlot>
-                                                                                    slots =
-                                                                                            slotMap
-                                                                                                    .computeIfAbsent(
-                                                                                                            slot
-                                                                                                                    .getLocation(),
-                                                                                                            k ->
-                                                                                                                    new ArrayList<>());
-                                                                            slots.add(slot);
-                                                                        }
-                                                                        trisk.getExecutionPlan()
-                                                                                .setSlotMap(
-                                                                                        slotMap);
-                                                                    });
-                                        }
+                                                FutureUtils.completeAll(updateFutureList);
+
+                                        // TEST ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                                        //                                        if
+                                        // (finalSlotAllocation != null) {
+                                        //                                            finishFuture =
+                                        //
+                                        // finishFuture
+                                        //
+                                        //  .thenCompose(
+                                        //
+                                        //          o ->
+                                        //
+                                        //                  jobMasterGateway
+                                        //
+                                        //                          .getAllSlots())
+                                        //
+                                        //  .thenAccept(
+                                        //
+                                        //          taskManagerSlots -> {
+                                        //
+                                        //              // compute
+                                        //
+                                        //              Map<
+                                        //
+                                        //                              String,
+                                        //
+                                        //                              List<
+                                        //
+                                        //                                      AbstractSlot>>
+                                        //
+                                        //                      slotMap =
+                                        //
+                                        //                              new HashMap<>();
+                                        //
+                                        //              for (TaskManagerSlotInformation
+                                        //
+                                        //                      taskManagerSlot :
+                                        //
+                                        //                              taskManagerSlots) {
+                                        //
+                                        //                  AbstractSlot slot =
+                                        //
+                                        //                          FlinkSlot
+                                        //
+                                        //                                  .fromTaskManagerSlot(
+                                        //
+                                        //
+                                        // taskManagerSlot);
+                                        //
+                                        //                  List<AbstractSlot>
+                                        //
+                                        //                          slots =
+                                        //
+                                        //                                  slotMap
+                                        //
+                                        //
+                                        // .computeIfAbsent(
+                                        //
+                                        //                                                  slot
+                                        //
+                                        //
+                                        // .getLocation(),
+                                        //
+                                        //                                                  k ->
+                                        //
+                                        //
+                                        // new ArrayList<>());
+                                        //
+                                        //                  slots.add(slot);
+                                        //
+                                        //              }
+                                        //
+                                        //              trisk.getExecutionPlan()
+                                        //
+                                        //                      .setSlotMap(
+                                        //
+                                        //                              slotMap);
+                                        //
+                                        //          });
+                                        //                                        }
                                         return finishFuture.whenComplete(
                                                 (o, failure) -> {
                                                     if (failure != null) {

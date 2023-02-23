@@ -30,6 +30,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.jsonplan.JsonPlanGenerator;
 import org.apache.flink.runtime.rescale.reconfigure.AbstractCoordinator;
 import org.apache.flink.runtime.rescale.reconfigure.ReconfigurationCoordinator;
+import org.apache.flink.runtime.scheduler.SchedulerBase;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,13 +82,15 @@ public class JobRescaleCoordinator implements JobRescaleAction, RescalepointAckn
 
     private final AbstractCoordinator abstractCoordinator;
 
-    public JobRescaleCoordinator(JobGraph jobGraph, ExecutionGraph executionGraph) {
+    public JobRescaleCoordinator(
+            JobGraph jobGraph, ExecutionGraph executionGraph, SchedulerBase scheduler) {
 
         this.jobGraph = jobGraph;
         this.executionGraph = executionGraph;
 
         this.notYetAcknowledgedTasks = new ArrayList<>();
-        this.abstractCoordinator = new ReconfigurationCoordinator(jobGraph, executionGraph);
+        this.abstractCoordinator =
+                new ReconfigurationCoordinator(jobGraph, executionGraph, scheduler);
     }
 
     public void init(ComponentMainThreadExecutor mainThreadExecutor) {

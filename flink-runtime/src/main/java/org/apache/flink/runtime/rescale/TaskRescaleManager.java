@@ -117,11 +117,11 @@ public class TaskRescaleManager {
         // TODO: This is a test version of Trisk 1.16.
         //        ResultPartitionWriter[] newPartitions =
         // ConsumableNotifyingResultPartitionWriterDecorator.decorate(
-        //                rescaleMeta.getResultPartitionDeploymentDescriptors(),
-        //                newResultPartitionWriters,
-        //                taskActions,
-        //                jobId,
-        //                resultPartitionConsumableNotifier);
+        //                        rescaleMeta.getResultPartitionDeploymentDescriptors(),
+        //                        newResultPartitionWriters,
+        //                        taskActions,
+        //                        jobId,
+        //                        resultPartitionConsumableNotifier);
 
         // setup partition, get bufferpool
         int index = 0;
@@ -134,6 +134,14 @@ public class TaskRescaleManager {
         for (ResultPartitionWriter partitionWriter : newResultPartitionWriters) {
             taskEventDispatcher.registerPartition(partitionWriter.getPartitionId());
         }
+
+        LOG.info(
+                "!!!!!!!!!! Update Partition for task: "
+                        + executionId
+                        + " with number of partitions: "
+                        + newResultPartitionWriters.length
+                        + " with number of subpartitions: "
+                        + newResultPartitionWriters[0].getNumberOfSubpartitions());
     }
 
     public boolean isScalingTarget() {
@@ -164,10 +172,11 @@ public class TaskRescaleManager {
                 }
             }
         }
-
-        inputGate.reset(
+        int numOfNewChannels =
                 calculateNumChannels(
-                        shuffleDescriptors.length, inputGate.getSubpartitionIndexRange()));
+                        shuffleDescriptors.length, inputGate.getSubpartitionIndexRange());
+        LOG.info("!!!!!!!!!! The number of new channel is: " + numOfNewChannels);
+        inputGate.reset(numOfNewChannels);
 
         createChannels(inputGate, shuffleDescriptors);
         // Not needed for Flink 1.16.
@@ -242,6 +251,16 @@ public class TaskRescaleManager {
             int consumedSubpartitionIndex,
             InputChannelMetrics metrics) {
         ResultPartitionID partitionId = inputChannelDescriptor.getResultPartitionID();
+        LOG.info(
+                "!!!!!!!!!! Creating new Input Channel: "
+                        + "inputGate: "
+                        + inputGate
+                        + "index: "
+                        + index
+                        + " Upstream Result PartitionID: "
+                        + partitionId
+                        + " consumed subpartition index: "
+                        + consumedSubpartitionIndex);
         if (inputChannelDescriptor.isLocalTo(shuffleEnvironment.getTaskExecutorResourceId())) {
             // Consuming task is deployed to the same TaskManager as the partition => local
             // Unaligned Checkpoint not supported for now.
@@ -306,6 +325,29 @@ public class TaskRescaleManager {
         LOG.info(
                 "++++++ taskRescaleManager finish, set meta to null for task "
                         + taskNameWithSubtaskAndId);
+    }
+
+    public void prepareRescaleMeta(
+            RescaleID rescaleId,
+            RescaleOptions rescaleOptions,
+            Collection<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
+            Collection<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors) {
+        TaskRescaleMeta meta =
+                new TaskRescaleMeta(
+                        rescaleId,
+                        rescaleOptions,
+                        resultPartitionDeploymentDescriptors,
+                        inputGateDeploymentDescriptors);
+
+        long timeStart = System.currentTimeMillis();
+        while (rescaleMeta != null) {
+            if (System.currentTimeMillis() - timeStart > 1000) {
+                throw new IllegalStateException(
+                        "One rescaling is in process, cannot prepare another rescaleMeta for "
+                                + taskNameWithSubtaskAndId);
+            }
+        }
+        rescaleMeta = meta;
     }
 
     private static class TaskRescaleMeta {
@@ -398,6 +440,9 @@ public class TaskRescaleManager {
                         "Cannot find matched InputGateDeploymentDescriptor");
             }
             gate.setConsumedSubpartitionIndex(igdds.get(0).getConsumedSubpartitionIndex());
+            LOG.info(
+                    "!!!!!!!!!! The subpartition index is set as:"
+                            + igdds.get(0).getConsumedSubpartitionIndex());
             return igdds.get(0);
         }
     }

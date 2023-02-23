@@ -72,15 +72,17 @@ public class InternalKeyContextImpl<K> implements InternalKeyContext<K> {
 
     @Override
     public void setCurrentKeyGroupIndex(int currentKeyGroupIndex) {
-        // this is a hashed index, need to map to a aligned index
+        // this is a hashed index, need to map to an aligned index
         try {
             int alignedCurrentKeyGroupIndex =
                     keyGroupRange.mapFromHashedToAligned(currentKeyGroupIndex);
             this.currentKeyGroupIndex = alignedCurrentKeyGroupIndex;
         } catch (NullPointerException e) {
             System.out.println(
-                    "can't find the aligned key group"
+                    "can't find the hashed key group "
                             + currentKeyGroupIndex
+                            + " the original key is: "
+                            + currentKey
                             + " , the map is: "
                             + keyGroupRange.getFromHashedToAligned());
             throw new RuntimeException(

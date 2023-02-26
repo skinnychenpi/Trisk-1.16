@@ -26,6 +26,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 import org.apache.flink.util.XORShiftRandom;
 
 import org.slf4j.Logger;
@@ -79,6 +80,9 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     private int volatileFlusherExceptionCheckSkipCount;
     private static final int VOLATILE_FLUSHER_EXCEPTION_MAX_CHECK_SKIP_COUNT = 100;
 
+    /** add a metrics manager to get true processing rate */
+    protected MetricsManager metricsManager;
+
     RecordWriter(ResultPartitionWriter writer, long timeout, String taskName) {
         this.targetPartition = writer;
         this.numberOfChannels = writer.getNumberOfSubpartitions();
@@ -103,15 +107,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
     protected void emit(T record, int targetSubpartition) throws IOException {
         checkErroneous();
-        //        if (targetSubpartition > 2) {
-        //            LOG.info(
-        //                    "!!!!!!!!!! ++++++++++ Record: "
-        //                            + record
-        //                            + " send from: "
-        //                            + outputFlusher
-        //                            + " to target subpartition: "
-        //                            + targetSubpartition);
-        //        }
         targetPartition.emitRecord(serializeRecord(serializer, record), targetSubpartition);
 
         if (flushAlways) {
@@ -281,5 +276,9 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     @VisibleForTesting
     ResultPartitionWriter getTargetPartition() {
         return targetPartition;
+    }
+
+    public void setMetricsManager(MetricsManager metricsManager) {
+        this.metricsManager = metricsManager;
     }
 }

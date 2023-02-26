@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -70,5 +71,10 @@ public final class ChannelSelectorRecordWriter<T extends IOReadableWritable>
         if (flushAlways) {
             flushAll();
         }
+    }
+
+    public void setMetricsManager(MetricsManager metricsManager) {
+        this.metricsManager = metricsManager;
+        this.channelSelector.setMetricsManager(metricsManager);
     }
 }

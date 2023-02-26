@@ -51,14 +51,14 @@ public class AssignedKeyGroupStreamPartitioner<T, K> extends StreamPartitioner<T
 
         int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(key, maxParallelism);
         int selectedChannel = assignKeyToOperator.get(keyGroup);
-        LOG.info(
-                "!!!!!!!!!! Record: ("
-                        + key
-                        + ","
-                        + keyGroup
-                        + ")"
-                        + "channel: "
-                        + selectedChannel);
+        //        LOG.info(
+        //                "!!!!!!!!!! Record: ("
+        //                        + key
+        //                        + ","
+        //                        + keyGroup
+        //                        + ")"
+        //                        + "channel: "
+        //                        + selectedChannel);
         Preconditions.checkState(
                 selectedChannel >= 0 && selectedChannel < numberOfChannels,
                 "selected channel out of range , "

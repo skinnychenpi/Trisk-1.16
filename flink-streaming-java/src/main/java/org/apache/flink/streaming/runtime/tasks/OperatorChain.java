@@ -42,6 +42,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorEventDispatcher;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.SnapshotResult;
+import org.apache.flink.runtime.util.profiling.MetricsManager;
 import org.apache.flink.streaming.api.graph.NonChainedOutput;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamEdge;
@@ -516,7 +517,8 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                             recordWriterDelegate.getRecordWriter(i),
                             output,
                             chainedConfigs.get(output.getSourceNodeId()),
-                            containingTask.getEnvironment());
+                            containingTask.getEnvironment(),
+                            containingTask.getMetricsManager());
 
             this.streamOutputs[i] = recordWriterOutput;
             recordWriterOutputs.put(output.getDataSetId(), recordWriterOutput);
@@ -527,7 +529,8 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
             RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter,
             NonChainedOutput streamOutput,
             StreamConfig upStreamConfig,
-            Environment taskEnvironment) {
+            Environment taskEnvironment,
+            MetricsManager metricsManager) {
         OutputTag sideOutputTag =
                 streamOutput.getOutputTag(); // OutputTag, return null if not sideOutput
 
@@ -551,7 +554,8 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                         recordWriter,
                         outSerializer,
                         sideOutputTag,
-                        streamOutput.supportsUnalignedCheckpoints()));
+                        streamOutput.supportsUnalignedCheckpoints(),
+                        metricsManager));
     }
 
     @SuppressWarnings("rawtypes")

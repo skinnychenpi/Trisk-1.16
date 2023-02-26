@@ -689,7 +689,7 @@ public class StreamingJobGraphGenerator {
                     transitiveOutputs.add(output);
                     connect(startNodeId, edge, output);
                 }
-
+                config.setOutEdgesInOrder(transitiveOutEdges);
                 config.setVertexNonChainedOutputs(new ArrayList<>(transitiveOutputs));
                 config.setTransitiveChainedTaskConfigs(chainedConfigs.get(startNodeId));
 
@@ -950,6 +950,7 @@ public class StreamingJobGraphGenerator {
                 mayReuseNonChainedOutputs(vertexID, nonChainableOutputs);
         config.setNumberOfOutputs(deduplicatedOutputs.size());
         config.setOperatorNonChainedOutputs(deduplicatedOutputs);
+        config.setNonChainedOutputs(nonChainableOutputs);
         config.setChainedOutputs(chainableOutputs);
 
         config.setTimeCharacteristic(streamGraph.getTimeCharacteristic());

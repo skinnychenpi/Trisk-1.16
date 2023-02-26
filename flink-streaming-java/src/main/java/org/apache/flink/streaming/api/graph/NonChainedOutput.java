@@ -41,7 +41,7 @@ public class NonChainedOutput implements Serializable {
     private final int sourceNodeId;
 
     /** Parallelism of the consumer vertex. */
-    private final int consumerParallelism;
+    private int consumerParallelism;
 
     /** Max parallelism of the consumer vertex. */
     private final int consumerMaxParallelism;
@@ -59,7 +59,7 @@ public class NonChainedOutput implements Serializable {
     private final OutputTag<?> outputTag;
 
     /** The corresponding data partitioner. */
-    private final StreamPartitioner<?> partitioner;
+    private StreamPartitioner<?> partitioner;
 
     /** Target {@link ResultPartitionType}. */
     private final ResultPartitionType partitionType;
@@ -142,5 +142,14 @@ public class NonChainedOutput implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(dataSetId);
+    }
+
+    // Trisk Methods
+    public void updateConsumerParallelism(int newParallelism) {
+        this.consumerParallelism = newParallelism;
+    }
+
+    public void updatePartitioner(StreamPartitioner<?> newPartitioner) {
+        this.partitioner = newPartitioner;
     }
 }

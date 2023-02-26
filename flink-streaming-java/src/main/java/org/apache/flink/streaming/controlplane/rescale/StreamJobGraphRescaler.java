@@ -26,6 +26,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rescale.reconfigure.JobGraphRescaler;
+import org.apache.flink.streaming.api.graph.NonChainedOutput;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamEdge;
 import org.apache.flink.streaming.runtime.partitioner.AssignedKeyGroupStreamPartitioner;
@@ -87,15 +88,25 @@ public class StreamJobGraphRescaler implements JobGraphRescaler {
             StreamConfig upstreamConfig = new StreamConfig(upstream.getConfiguration());
 
             List<StreamEdge> upstreamOutEdges = upstreamConfig.getOutEdgesInOrder(userCodeLoader);
-            Map<String, StreamEdge> updatedEdges =
+            Tuple2<Map<String, StreamEdge>, StreamPartitioner<?>> updateResult =
                     updateEdgePartition(
                             jobEdge,
                             partitionAssignment,
                             upstreamOutEdges,
                             targetInEdges); // 这一步会修改上游节点和要修改并行度的节点的partition，也就是更新了上游节点生产的结果的路由表。这个表的key是128个key group中的某一个，value则是下游10个task中的某一个，这样就更新了路由。
 
+            Map<String, StreamEdge> updatedEdges = updateResult.f0;
+            StreamPartitioner<?> newPartitioner = updateResult.f1;
+            // New Trisk 1.16 logic: We need to update the parallelism and partitioner of
+            // NonChainedOutput
+            updateNonChainedOutput(upstreamConfig, newPartitioner, vertex.getParallelism());
+
             upstreamConfig.setOutEdgesInOrder(upstreamOutEdges);
             updateAllOperatorsConfig(upstreamConfig, updatedEdges);
+            // In Flink 1.16, everytime we modify the config, it is not serialized. We need to do it
+            // by
+            // ourselves.
+            upstreamConfig.serializeAllConfigs();
         }
         config.setInPhysicalEdges(targetInEdges);
 
@@ -112,19 +123,28 @@ public class StreamJobGraphRescaler implements JobGraphRescaler {
                 List<StreamEdge> downstreamInEdges =
                         downstreamConfig.getInPhysicalEdges(userCodeLoader);
                 // TODO: targetVertex is not supposed to be modified
-                Map<String, StreamEdge> updatedEdges =
+
+                Tuple2<Map<String, StreamEdge>, StreamPartitioner<?>> updateResult =
                         updateEdgePartition(
                                 jobEdge,
                                 null,
                                 targetOutEdges,
                                 downstreamInEdges); // 对于下游，updatedEdges返回的是一个空的map,也就是不需要修改target
                 // edges到其下游节点的路由表？？
+                Map<String, StreamEdge> updatedEdges = updateResult.f0;
 
                 downstreamConfig.setInPhysicalEdges(downstreamInEdges);
                 updateAllOperatorsConfig(downstreamConfig, updatedEdges);
+                // In Flink 1.16, everytime we modify the config, it is not serialized. We need to
+                // do it by
+                // ourselves.
+                downstreamConfig.serializeAllConfigs();
             }
         }
         config.setOutEdgesInOrder(targetOutEdges);
+        // In Flink 1.16, everytime we modify the config, it is not serialized. We need to do it by
+        // ourselves.
+        config.serializeAllConfigs();
         return Tuple2.of(involvedUpstream, involvedDownstream);
     }
 
@@ -135,14 +155,14 @@ public class StreamJobGraphRescaler implements JobGraphRescaler {
         return streamConfig.getOutEdgesInOrder(userCodeLoader).get(0).toString();
     }
 
-    private Map<String, StreamEdge> updateEdgePartition(
+    private Tuple2<Map<String, StreamEdge>, StreamPartitioner<?>> updateEdgePartition(
             JobEdge jobEdge,
             Map<Integer, List<Integer>> partitionAssignment,
             List<StreamEdge> upstreamOutEdges,
             List<StreamEdge> downstreamInEdges) {
         // Stream Edge 可以理解为Job之间的Edge
         Map<String, StreamEdge> updatedEdges = new HashMap<>();
-
+        StreamPartitioner partitioner = null;
         for (StreamEdge outEdge : upstreamOutEdges) {
             for (StreamEdge inEdge : downstreamInEdges) {
                 if (outEdge.equals(inEdge)) {
@@ -176,10 +196,13 @@ public class StreamJobGraphRescaler implements JobGraphRescaler {
                     // TODO scaling: what if RescalePartitioner
 
                     if (newPartitioner != null) {
+                        partitioner = newPartitioner;
                         jobEdge.setDistributionPattern(DistributionPattern.ALL_TO_ALL);
                         jobEdge.setShipStrategyName(newPartitioner.toString());
 
-                        System.out.println(outEdge.getEdgeId());
+                        System.out.println(
+                                "Updating the partitioner of edge with ID@StreamJobGraphRescaler: "
+                                        + outEdge.getEdgeId());
 
                         outEdge.setPartitioner(newPartitioner);
                         inEdge.setPartitioner(newPartitioner);
@@ -190,7 +213,7 @@ public class StreamJobGraphRescaler implements JobGraphRescaler {
             }
         }
 
-        return updatedEdges;
+        return Tuple2.of(updatedEdges, partitioner);
     }
 
     private void updateAllOperatorsConfig(
@@ -215,5 +238,20 @@ public class StreamJobGraphRescaler implements JobGraphRescaler {
             }
         }
         operatorConfig.setNonChainedOutputs(nonChainedOutputs);
+    }
+
+    private void updateNonChainedOutput(
+            StreamConfig operatorConfig, StreamPartitioner<?> newPartitioner, int newParallelism) {
+        List<NonChainedOutput> nonChainedOutputs =
+                operatorConfig.getVertexNonChainedOutputs(userCodeLoader);
+        for (int i = 0; i < nonChainedOutputs.size(); i++) {
+            NonChainedOutput output = nonChainedOutputs.get(i);
+            if (output.getSourceNodeId() == operatorConfig.getVertexID()) {
+                output.updatePartitioner(newPartitioner);
+                output.updateConsumerParallelism(newParallelism);
+                nonChainedOutputs.set(i, output);
+            }
+        }
+        operatorConfig.setVertexNonChainedOutputs(nonChainedOutputs);
     }
 }

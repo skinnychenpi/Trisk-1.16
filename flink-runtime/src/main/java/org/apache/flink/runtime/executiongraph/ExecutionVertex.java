@@ -31,6 +31,7 @@ import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rescale.RescaleID;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -669,6 +670,17 @@ public class ExecutionVertex
     public void updateRescaleId(RescaleID rescaleId) {
         this.rescaleId = rescaleId;
     }
-    // ---------------------------------------Trisk
-    // Methods------------------------------------------
+
+    public List<CompletableFuture<Acknowledge>> getExecutionVerticesDeploymentFutureForRescale() {
+        return getExecutionGraphAccessor().getExecutionVerticesDeploymentFutureForRescale();
+    }
+
+    public void setFlagToWaitForRescaleDeploymentFuturesDone() {
+        getExecutionGraphAccessor().setFlagToWaitForRescaleDeploymentFuturesDone();
+    }
+
+    public void removeExecutionVertexIDToBeDeployedForRescale() {
+        getExecutionGraphAccessor().removeExecutionVertexIDToBeDeployedForRescale(this.getID());
+    }
+    // ---------------------------------------Trisk Methods------------------------------------
 }

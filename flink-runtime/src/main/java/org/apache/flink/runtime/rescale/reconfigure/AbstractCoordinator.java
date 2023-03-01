@@ -240,14 +240,19 @@ public abstract class AbstractCoordinator
         if (oldParallelism < targetJobVertex.getParallelism()) {
             // scale out, we assume every time only one scale out will be called. Otherwise it will
             // subsitute current candidates
-            this.createdCandidates.put(
-                    rawVertexID,
+
+            // 这里在execution graph对target上游的output进行了execution
+            // edge的修改（2个变成10个）+ 修改了target execution vertex（从2个变成10个）
+            List<ExecutionVertex> newCreatedEVs =
                     targetVertex.scaleOut(
                             executionGraph.getExecutionHistorySizeLimit(),
                             executionGraph.getRpcTimeout(),
                             System.currentTimeMillis(),
-                            null)); // 这里在execution graph对target上游的output进行了execution
-            // edge的修改（2个变成10个）+ 修改了target execution vertex（从2个变成10个）
+                            null);
+            // Trisk 1.16 new logic: update execution graph's target EJV info
+            executionGraph.registerNewCreatedExecutionVerticesAndResultPartitions(targetVertex);
+
+            this.createdCandidates.put(rawVertexID, newCreatedEVs);
 
             for (JobVertexID downstreamID : updatedDownstream) {
                 ExecutionJobVertex downstream =
@@ -259,6 +264,10 @@ public abstract class AbstractCoordinator
                                     .getProducedDataSets()); // 这个函数利用传入的jobEdges的信息将target下游的节点的input ExecutionEdges 设定为10，并且更新到最新的partition
                 }
             }
+            // Trisk 1.16 new logic:
+            // update DefaultExecutionTopology + init future for update task resources
+            executionGraph.updateSchedulingTopologyForScaleOut(executionGraph, newCreatedEVs);
+            executionGraph.initExecutionVerticesDeploymentFutureForRescale(newCreatedEVs);
         } else if (oldParallelism > targetJobVertex.getParallelism()) {
             // scale in
             List<Integer> removedTaskIds = operatorWorkloadsAssignment.getRemovedSubtask();

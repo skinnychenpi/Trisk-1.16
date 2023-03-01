@@ -222,6 +222,18 @@ public class DefaultExecutionTopology implements SchedulingTopology {
         notifySchedulingTopologyUpdated(newExecutionVertices);
     }
 
+    public void updateSchedulingTopologyForScaleOut(
+            final DefaultExecutionGraph executionGraph,
+            List<ExecutionVertex> newExecutionVertices) {
+        generateNewExecutionVerticesAndResultPartitions(newExecutionVertices);
+
+        addExecutionVertexToPipelinedRegions(newExecutionVertices);
+
+        ensureCoLocatedVerticesInSameRegion(pipelinedRegions, executionGraph);
+
+        notifySchedulingTopologyUpdated(newExecutionVertices);
+    }
+
     private void notifySchedulingTopologyUpdated(Iterable<ExecutionVertex> newExecutionVertices) {
         List<ExecutionVertexID> newVertexIds =
                 IterableUtils.toStream(newExecutionVertices)
@@ -419,6 +431,23 @@ public class DefaultExecutionTopology implements SchedulingTopology {
                 pipelinedRegions.size());
     }
 
+    private void addExecutionVertexToPipelinedRegions(
+            Iterable<ExecutionVertex> newExecutionVertices) {
+        if (pipelinedRegions.size() != 1) {
+            LOG.error("++++++ Currently not support rescaling on multiple pipelined regions");
+            return;
+        }
+        final List<DefaultExecutionVertex> newSchedulingExecutionVertices =
+                IterableUtils.toStream(newExecutionVertices)
+                        .map(ExecutionVertex::getID)
+                        .map(executionVerticesById::get)
+                        .collect(Collectors.toList());
+        DefaultSchedulingPipelinedRegion region = pipelinedRegions.get(0);
+        for (SchedulingExecutionVertex executionVertex : newSchedulingExecutionVertices) {
+            pipelinedRegionsByVertex.put(executionVertex.getId(), region);
+        }
+        region.addExecutionVertexToPipelinedRegions(newSchedulingExecutionVertices);
+    }
     /**
      * Check if the {@link DefaultLogicalPipelinedRegion} contains intra-region all-to-all edges or
      * not.

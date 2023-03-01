@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
@@ -38,6 +39,7 @@ import org.apache.flink.util.SerializedValue;
 import javax.annotation.Nonnull;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -120,4 +122,10 @@ public interface InternalExecutionGraphAccessor {
     /** Get the shuffle descriptors of the cluster partitions ordered by partition number. */
     List<ShuffleDescriptor> getClusterPartitionShuffleDescriptors(
             IntermediateDataSetID intermediateResultPartition);
+
+    List<CompletableFuture<Acknowledge>> getExecutionVerticesDeploymentFutureForRescale();
+
+    void setFlagToWaitForRescaleDeploymentFuturesDone();
+
+    void removeExecutionVertexIDToBeDeployedForRescale(ExecutionVertexID id);
 }

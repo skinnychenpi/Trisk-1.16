@@ -591,8 +591,27 @@ public class Execution
             // We run the submission in the future executor so that the serialization of large TDDs
             // does not block
             // the main thread and sync back to the main thread once submission is completed.
+            List<CompletableFuture<Acknowledge>> deployFuturesForRescale =
+                    getExecutionVerticesDeploymentFutureForRescale();
             CompletableFuture.supplyAsync(
-                            () -> taskManagerGateway.submitTask(deployment, rpcTimeout), executor)
+                            () -> {
+                                CompletableFuture<Acknowledge> deployFuture =
+                                        taskManagerGateway.submitTask(deployment, rpcTimeout);
+                                // If nonnull -> we are now in the process of rescale deployment.
+                                // If null -> normal deployment.
+                                if (deployFuturesForRescale != null) {
+                                    deployFuturesForRescale.add(deployFuture);
+                                    System.out.println("!!!!!!! Deploying EV: " + getVertex());
+                                    // remove the EV to be deployed since we already ask TM to
+                                    // deploy for us.
+                                    removeExecutionVertexIDToBeDeployedForRescale();
+                                    // Mark the flag is done so that in ReconfigurationCoordinator,
+                                    // trisk can now wait for all new deployed tasks to complete.
+                                    setFlagToWaitForRescaleDeploymentFuturesDone();
+                                }
+                                return deployFuture;
+                            },
+                            executor)
                     .thenCompose(Function.identity())
                     .whenCompleteAsync(
                             (ack, failure) -> {
@@ -1753,5 +1772,17 @@ public class Execution
     public void updateBeforeDeploy(KeyGroupRange alignedKeyGroupRange, int idInModel) {
         getVertex().assignKeyGroupRange(alignedKeyGroupRange);
         getVertex().setIdInModel(idInModel);
+    }
+
+    public List<CompletableFuture<Acknowledge>> getExecutionVerticesDeploymentFutureForRescale() {
+        return getVertex().getExecutionVerticesDeploymentFutureForRescale();
+    }
+
+    public void setFlagToWaitForRescaleDeploymentFuturesDone() {
+        getVertex().setFlagToWaitForRescaleDeploymentFuturesDone();
+    }
+
+    public void removeExecutionVertexIDToBeDeployedForRescale() {
+        getVertex().removeExecutionVertexIDToBeDeployedForRescale();
     }
 }

@@ -879,8 +879,12 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
 
         List<NonChainedOutput> outputsInOrder =
                 configuration.getVertexNonChainedOutputs(userCodeClassloader);
-        System.out.println(
-                "!!!!!!!!!!!! The list of NonChainedOutput is of size: " + outputsInOrder.size());
+
+        // DEBUG USE
+        //        System.out.println(
+        //                "!!!!!!!!!!!! The list of NonChainedOutput is of size: " +
+        // outputsInOrder.size());
+
         // create the final output stream writers
         // we iterate through all the out edges from this job vertex and create a stream output
         List<StreamEdge> outEdgesInOrder = configuration.getOutEdgesInOrder(userCodeClassloader);

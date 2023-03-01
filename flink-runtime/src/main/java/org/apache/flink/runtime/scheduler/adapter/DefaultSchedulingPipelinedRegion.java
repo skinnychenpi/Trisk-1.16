@@ -29,6 +29,7 @@ import org.apache.flink.util.Preconditions;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -116,6 +117,14 @@ public class DefaultSchedulingPipelinedRegion implements SchedulingPipelinedRegi
             initializeConsumedPartitionGroups();
         }
         return releaseBySchedulerConsumedPartitionGroups;
+    }
+
+    public void addExecutionVertexToPipelinedRegions(
+            List<DefaultExecutionVertex> newSchedulingExecutionVertices) {
+        for (DefaultExecutionVertex executionVertex : newSchedulingExecutionVertices) {
+            this.executionVertices.put(executionVertex.getId(), executionVertex);
+        }
+        initializeConsumedPartitionGroups();
     }
 
     @Override

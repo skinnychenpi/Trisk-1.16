@@ -37,6 +37,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
 import org.apache.flink.runtime.scheduler.InternalFailuresListener;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
@@ -232,4 +233,17 @@ public interface ExecutionGraph extends AccessExecutionGraph {
     Time getRpcTimeout();
 
     void updateNumOfTotalVertices();
+
+    void updateSchedulingTopologyForScaleOut(
+            final ExecutionGraph executionGraph, List<ExecutionVertex> newExecutionVertices);
+
+    void registerNewCreatedExecutionVerticesAndResultPartitions(ExecutionJobVertex ejv);
+
+    List<CompletableFuture<Acknowledge>> getExecutionVerticesDeploymentFutureForRescale();
+
+    void resetExecutionVerticesDeploymentFutureForRescale();
+
+    void initExecutionVerticesDeploymentFutureForRescale(List<ExecutionVertex> newCreatedEVs);
+
+    CompletableFuture<Void> getFlagToWaitForRescaleDeploymentFutures();
 }

@@ -1644,10 +1644,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         List<NonChainedOutput> outputsInOrder =
                 configuration.getVertexNonChainedOutputs(
                         environment.getUserCodeClassLoader().asClassLoader());
-        if (outputsInOrder.size() > 0)
-            System.out.println(
-                    "!!!!!!!!!! NonChainedOutput consumer parallelism: "
-                            + outputsInOrder.get(0).getConsumerParallelism());
+        //        if (outputsInOrder.size() > 0)
+        //            System.out.println(
+        //                    "!!!!!!!!!! NonChainedOutput consumer parallelism: "
+        //                            + outputsInOrder.get(0).getConsumerParallelism());
         int index = 0;
         for (NonChainedOutput streamOutput : outputsInOrder) {
             recordWriters.add(
@@ -1682,7 +1682,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
             ExceptionUtils.rethrow(e);
         }
 
-        LOG.info(
+        LOG.debug(
                 "Using partitioner {} for output {} of task {}",
                 outputPartitioner,
                 outputIndex,

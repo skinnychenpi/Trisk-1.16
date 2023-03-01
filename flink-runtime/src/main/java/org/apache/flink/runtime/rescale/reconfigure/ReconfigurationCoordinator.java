@@ -204,19 +204,10 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
         }
 
         scheduler.allocateSlotsAndDeploy(executionsToDeploy);
-
-        CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
-        assert checkpointCoordinator != null;
-        checkpointCoordinator.stopCheckpointScheduler();
-        checkNotNull(checkpointCoordinator);
-
-        if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
-            checkpointCoordinator.startCheckpointScheduler();
-        }
-
-        // clear all created candidates
-        createdCandidates.get(operatorID).clear();
-
+        // TODO: Think about how to organize the code so that deployFutures can be added into the
+        //       list for new created 8 EVs.
+        CompletableFuture<Void> flag = executionGraph.getFlagToWaitForRescaleDeploymentFutures();
+        checkArgument(flag != null, "++++++ The flag for rescale deployment should not be null!");
         //        for (ExecutionVertex vertex : createdCandidates.get(operatorID)) {
         //            Execution executionAttempt = vertex.getCurrentExecutionAttempt();
         //
@@ -259,7 +250,33 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
         //
         //                    return FutureUtils.waitForAll(deployFutures);
         //                });
-        return FutureUtils.completeAll(allocateSlotFutures);
+        try {
+            flag.get();
+        } catch (Exception e) {
+            LOG.error(
+                    "!!!!!!!!!! Errors occur when waiting the rescale deployment flag to be marked.");
+        }
+
+        return FutureUtils.waitForAll(
+                        executionGraph.getExecutionVerticesDeploymentFutureForRescale())
+                .thenApply(
+                        (ignore) -> {
+                            CheckpointCoordinator checkpointCoordinator =
+                                    executionGraph.getCheckpointCoordinator();
+                            assert checkpointCoordinator != null;
+                            checkpointCoordinator.stopCheckpointScheduler();
+                            checkNotNull(checkpointCoordinator);
+
+                            if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+                                checkpointCoordinator.startCheckpointScheduler();
+                            }
+
+                            // clear all created candidates
+                            createdCandidates.get(operatorID).clear();
+                            // Trisk 1.16 logic: clear EVDeploymentFutureForRescale
+                            executionGraph.resetExecutionVerticesDeploymentFutureForRescale();
+                            return ignore;
+                        });
     }
 
     private CompletableFuture<Void> deployTasks(
@@ -313,20 +330,55 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
 
             scheduler.allocateSlotsAndDeploy(executionsToDeploy);
 
-            CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
-            assert checkpointCoordinator != null;
-            checkpointCoordinator.stopCheckpointScheduler();
-            checkNotNull(checkpointCoordinator);
+            CompletableFuture<Void> flag =
+                    executionGraph.getFlagToWaitForRescaleDeploymentFutures();
+            checkArgument(
+                    flag != null, "++++++ The flag for rescale deployment should not be null!");
 
-            if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
-                checkpointCoordinator.startCheckpointScheduler();
-            }
-
-            // clear all created candidates
-            createdCandidates.get(operatorID).clear();
+            //            CheckpointCoordinator checkpointCoordinator =
+            // executionGraph.getCheckpointCoordinator();
+            //            assert checkpointCoordinator != null;
+            //            checkpointCoordinator.stopCheckpointScheduler();
+            //            checkNotNull(checkpointCoordinator);
+            //
+            //            if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
+            //                checkpointCoordinator.startCheckpointScheduler();
+            //            }
+            //
+            //            // clear all created candidates
+            //            createdCandidates.get(operatorID).clear();
         }
 
-        return FutureUtils.completeAll(allocateSlotFutures);
+        return executionGraph
+                .getFlagToWaitForRescaleDeploymentFutures()
+                .thenAccept(
+                        (dummy) ->
+                                FutureUtils.waitForAll(
+                                                executionGraph
+                                                        .getExecutionVerticesDeploymentFutureForRescale())
+                                        .thenApply(
+                                                (ignore) -> {
+                                                    CheckpointCoordinator checkpointCoordinator =
+                                                            executionGraph
+                                                                    .getCheckpointCoordinator();
+                                                    assert checkpointCoordinator != null;
+                                                    checkpointCoordinator.stopCheckpointScheduler();
+                                                    checkNotNull(checkpointCoordinator);
+
+                                                    if (checkpointCoordinator
+                                                            .isPeriodicCheckpointingConfigured()) {
+                                                        checkpointCoordinator
+                                                                .startCheckpointScheduler();
+                                                    }
+
+                                                    // clear all created candidates
+                                                    createdCandidates.get(operatorID).clear();
+                                                    // Trisk 1.16 logic: clear
+                                                    // EVDeploymentFutureForRescale
+                                                    executionGraph
+                                                            .resetExecutionVerticesDeploymentFutureForRescale();
+                                                    return ignore;
+                                                }));
 
         //        return FutureUtils.combineAll(allocateSlotFutures)
         //                .whenComplete((executions, throwable) -> {

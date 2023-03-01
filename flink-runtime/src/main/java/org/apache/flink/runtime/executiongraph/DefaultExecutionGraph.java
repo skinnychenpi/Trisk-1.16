@@ -60,6 +60,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.CoordinatorStore;
 import org.apache.flink.runtime.operators.coordination.CoordinatorStoreImpl;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
@@ -102,6 +103,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -294,6 +296,19 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     private final ExecutionJobVertex.Factory executionJobVertexFactory;
 
     private final List<JobStatusHook> jobStatusHooks;
+
+    // -------------------------------- Fields for Trisk 1.16 -------------------------------------
+    /**
+     * When rescale triggers, this list will become nonnull. When rescale finishes, it becomes
+     * nonnull again.
+     */
+    private List<CompletableFuture<Acknowledge>> executionVerticesDeploymentFutureForRescale = null;
+    /**
+     * The flag is a signal that Trisk starts to deploy new execution to TaskManager during rescale.
+     */
+    private CompletableFuture<Void> flagToWaitDeploymentFuturesForRescale = null;
+
+    private HashSet<ExecutionVertexID> executionVertexIDSetToBeDeployedForRescale = null;
 
     // --------------------------------------------------------------------------------------------
     //   Constructors
@@ -1531,6 +1546,17 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     }
 
     @Override
+    public void registerNewCreatedExecutionVerticesAndResultPartitions(ExecutionJobVertex ejv) {
+        for (ExecutionVertex executionVertex : ejv.getTaskVertices()) {
+            // Only add new created EVs into the map.
+            if (!executionVerticesById.containsKey(executionVertex.getID())) {
+                executionVerticesById.put(executionVertex.getID(), executionVertex);
+                resultPartitionsById.putAll(executionVertex.getProducedPartitions());
+            }
+        }
+    }
+
+    @Override
     public void updateAccumulators(AccumulatorSnapshot accumulatorSnapshot) {
         Map<String, Accumulator<?, ?>> userAccumulators;
         try {
@@ -1698,11 +1724,68 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         updatePartitionReleaseStrategy();
     }
 
-    public void updatePartitionReleaseStrategy() {
+    @Override
+    public void updateSchedulingTopologyForScaleOut(
+            ExecutionGraph executionGraph, List<ExecutionVertex> newExecutionVertices) {
+        executionTopology.updateSchedulingTopologyForScaleOut(this, newExecutionVertices);
+    }
+
+    @Override
+    public List<CompletableFuture<Acknowledge>> getExecutionVerticesDeploymentFutureForRescale() {
+        return executionVerticesDeploymentFutureForRescale;
+    }
+
+    private void updatePartitionReleaseStrategy() {
         // the topology assigning should happen before notifying new vertices to failoverStrategy
-        LOG.info("++++++update partition release strategy");
+        LOG.info("++++++ update partition release strategy");
         executionTopology = DefaultExecutionTopology.fromExecutionGraph(this);
         partitionGroupReleaseStrategy =
                 partitionGroupReleaseStrategyFactory.createInstance(getSchedulingTopology());
+    }
+
+    @Override
+    public void resetExecutionVerticesDeploymentFutureForRescale() {
+        executionVerticesDeploymentFutureForRescale = null;
+        flagToWaitDeploymentFuturesForRescale = null;
+        executionVertexIDSetToBeDeployedForRescale = null;
+    }
+
+    @Override
+    public void initExecutionVerticesDeploymentFutureForRescale(
+            List<ExecutionVertex> newCreatedEVs) {
+        executionVerticesDeploymentFutureForRescale = new ArrayList<>();
+        flagToWaitDeploymentFuturesForRescale = new CompletableFuture<>();
+        executionVertexIDSetToBeDeployedForRescale = new HashSet<>();
+        for (ExecutionVertex newEV : newCreatedEVs) {
+            executionVertexIDSetToBeDeployedForRescale.add(newEV.getID());
+        }
+    }
+
+    @Override
+    public void removeExecutionVertexIDToBeDeployedForRescale(ExecutionVertexID id) {
+        synchronized (executionVertexIDSetToBeDeployedForRescale) {
+            executionVertexIDSetToBeDeployedForRescale.remove(id);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> getFlagToWaitForRescaleDeploymentFutures() {
+        return flagToWaitDeploymentFuturesForRescale;
+    }
+
+    @Override
+    public void setFlagToWaitForRescaleDeploymentFuturesDone() {
+        synchronized (flagToWaitDeploymentFuturesForRescale) {
+            if (isExecutionVertexIDSetToBeDeployedForRescaleEmpty()
+                    && !flagToWaitDeploymentFuturesForRescale.isDone()) {
+                flagToWaitDeploymentFuturesForRescale.complete(null);
+            }
+        }
+    }
+
+    private boolean isExecutionVertexIDSetToBeDeployedForRescaleEmpty() {
+        synchronized (executionVertexIDSetToBeDeployedForRescale) {
+            return executionVertexIDSetToBeDeployedForRescale.isEmpty();
+        }
     }
 }

@@ -84,7 +84,7 @@ public class ResultPartitionManager implements ResultPartitionProvider {
                 throw new PartitionNotFoundException(partitionId);
             }
 
-            LOG.debug("Requesting subpartition {} of {}.", subpartitionIndex, partition);
+            LOG.info("!!!!!!!!!! Requesting subpartition {} of {}.", subpartitionIndex, partition);
             subpartitionView =
                     partition.createSubpartitionView(subpartitionIndex, availabilityListener);
         }

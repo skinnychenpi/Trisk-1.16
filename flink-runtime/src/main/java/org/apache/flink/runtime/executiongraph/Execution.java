@@ -1740,7 +1740,12 @@ public class Execution
                     .handleAsync(
                             (ack, failure) -> {
                                 if (failure != null) {
-                                    LOG.error("++++++ scheduleRescale err: ", failure);
+                                    LOG.error(
+                                            "++++++ scheduleRescale err with task: "
+                                                    + this.getVertex()
+                                                    + "rescale options: "
+                                                    + rescaleOptions,
+                                            failure);
                                     throw new CompletionException(failure);
                                 }
                                 return null;

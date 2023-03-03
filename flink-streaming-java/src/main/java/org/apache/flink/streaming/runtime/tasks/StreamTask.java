@@ -1805,6 +1805,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                     try {
                         success.get();
                     } catch (InterruptedException | ExecutionException e) {
+                        LOG.error("!!!!!!!! Something wrong at finalize rescale: " + this);
                         e.printStackTrace();
                     }
                 });
@@ -1873,8 +1874,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                             LOG.info(
                                     "!!!!!!!!!! Update Gate for task: "
                                             + this.getName()
-                                            + "with gates: "
-                                            + getEnvironment().getAllInputGates());
+                                            + " with gates number: "
+                                            + getEnvironment().getAllInputGates().length);
                             for (InputGate gate : getEnvironment().getAllInputGates()) {
                                 rescaleManager.substituteInputGateChannels(
                                         (SingleInputGate)

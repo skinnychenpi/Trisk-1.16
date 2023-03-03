@@ -140,7 +140,8 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
 
     @Override
     public CompletableFuture<Void> resumeTasks() {
-        return null;
+        checkNotNull(currentSyncOp, "have you call sync op before?");
+        return currentSyncOp.resumeAll().thenAccept(o -> currentSyncOp = null);
     }
 
     @Override
@@ -749,6 +750,7 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
         for (ExecutionVertex vertex : jobVertex.getTaskVertices()) {
             Execution execution = vertex.getCurrentExecutionAttempt();
             if (execution != null && execution.getState() == ExecutionState.RUNNING) {
+                LOG.info("!!!!!!!!!! Now start to update the gates of :" + vertex);
                 futureList.add(
                         execution.scheduleRescale(
                                 rescaleID, RescaleOptions.RESCALE_GATES_ONLY, null));

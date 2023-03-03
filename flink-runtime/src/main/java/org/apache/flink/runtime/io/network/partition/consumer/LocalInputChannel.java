@@ -124,8 +124,8 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
             checkState(!isReleased, "LocalInputChannel has been released already");
 
             if (subpartitionView == null) {
-                LOG.debug(
-                        "{}: Requesting LOCAL subpartition {} of partition {}. {}",
+                LOG.info(
+                        "!!!!!!!!!! {}: Requesting LOCAL subpartition {} of partition {}. {}",
                         this,
                         consumedSubpartitionIndex,
                         partitionId,

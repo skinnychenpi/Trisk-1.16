@@ -73,6 +73,8 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
     private final ChannelStatePersister channelStatePersister;
 
+    private String owningTaskName;
+
     public LocalInputChannel(
             SingleInputGate inputGate,
             int channelIndex,
@@ -95,7 +97,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
                 maxBackoff,
                 numBytesIn,
                 numBuffersIn);
-
+        this.owningTaskName = inputGate.getOwningTaskName();
         this.partitionManager = checkNotNull(partitionManager);
         this.taskEventPublisher = checkNotNull(taskEventPublisher);
         this.channelStatePersister = new ChannelStatePersister(stateWriter, getChannelInfo());
@@ -124,11 +126,13 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
             checkState(!isReleased, "LocalInputChannel has been released already");
 
             if (subpartitionView == null) {
-                LOG.info(
+                LOG.debug(
                         "!!!!!!!!!! {}: Requesting LOCAL subpartition {} of partition {}. {}",
-                        this,
+                        owningTaskName,
                         consumedSubpartitionIndex,
-                        partitionId,
+                        partitionManager
+                                .queryPartitionByPartitionID(partitionId)
+                                .getOwningTaskName(),
                         channelStatePersister);
 
                 try {
@@ -219,7 +223,8 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
             subpartitionView = checkAndWaitForSubpartitionView();
         }
 
-        BufferAndBacklog next = subpartitionView.getNextBuffer();
+        BufferAndBacklog next =
+                subpartitionView.getNextBuffer(); // Check next.nextDataType is None or not!!
         // ignore the empty buffer directly
         while (next != null && next.buffer().readableBytes() == 0) {
             next.buffer().recycleBuffer();
@@ -257,6 +262,27 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
                 channelInfo,
                 channelStatePersister,
                 next.getSequenceNumber());
+
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!! TEST ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // Just check one of the new deployed task's input.
+        //        if (inputGate.getOwningTaskName().contains("6/10")) {
+        //            LOG.info(
+        //                    "$$$$$$$$ [{}] {} {}, seq {}, {} @ {}",
+        //                    inputGate.getOwningTaskName(),
+        //                    "LocalInputChannel#getNextBuffer",
+        //                    buffer.toDebugString(true),
+        //                    next.getSequenceNumber(),
+        //                    channelStatePersister,
+        //                    channelInfo);
+        //        }
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!! TEST ONLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if (buffer.getDataType() == Buffer.DataType.RECOVERY_COMPLETION
+                && newCreatedChannelAfterRescale) {
+            unflagAsNewCreatedChannel();
+            this.resumeConsumption();
+            LOG.info("!!!!!!!" + this + "resumed consumption on subpartition view.");
+        }
+
         return Optional.of(
                 new BufferAndAvailability(
                         buffer,

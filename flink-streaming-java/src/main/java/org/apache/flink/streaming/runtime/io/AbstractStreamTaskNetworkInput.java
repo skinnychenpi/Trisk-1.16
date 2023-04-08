@@ -33,6 +33,9 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.watermarkstatus.StatusWatermarkValve;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +54,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public abstract class AbstractStreamTaskNetworkInput<
                 T, R extends RecordDeserializer<DeserializationDelegate<StreamElement>>>
         implements StreamTaskInput<T> {
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractStreamTaskNetworkInput.class);
     protected final CheckpointedInputGate checkpointedInputGate;
     protected final DeserializationDelegate<StreamElement> deserializationDelegate;
     protected final TypeSerializer<T> inputSerializer;
@@ -142,6 +146,14 @@ public abstract class AbstractStreamTaskNetworkInput<
 
     private void processElement(StreamElement recordOrMark, DataOutput<T> output) throws Exception {
         if (recordOrMark.isRecord()) {
+            // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
+            //            if (this.checkpointedInputGate.getNumberOfInputChannels() == 10) {
+            //                LOG.info(
+            //                        "^^^^^^^^^^^ Received Stream Record at Filter->Map: "
+            //                                + recordOrMark.asRecord());
+            //            }
+
+            // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
             output.emitRecord(recordOrMark.asRecord());
         } else if (recordOrMark.isWatermark()) {
             statusWatermarkValve.inputWatermark(

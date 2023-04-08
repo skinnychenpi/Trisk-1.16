@@ -59,6 +59,8 @@ public final class StreamTaskNetworkInput<T>
                 T,
                 SpillingAdaptiveSpanningRecordDeserializer<
                         DeserializationDelegate<StreamElement>>> {
+    private final IOManager ioManager;
+
     public StreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
             TypeSerializer<T> inputSerializer,
@@ -71,6 +73,7 @@ public final class StreamTaskNetworkInput<T>
                 statusWatermarkValve,
                 inputIndex,
                 getRecordDeserializers(checkpointedInputGate, ioManager));
+        this.ioManager = ioManager;
     }
 
     // Initialize one deserializer per input channel
@@ -117,5 +120,35 @@ public final class StreamTaskNetworkInput<T>
 
         // cleanup the resources of the checkpointed input gate
         checkpointedInputGate.close();
+    }
+
+    public void reconnect() {
+        // TODO: if the num of channel is the same, do we need to update all those stuff?
+        int numInputChannels = checkpointedInputGate.getNumberOfInputChannels();
+        //        RecordDeserializer<DeserializationDelegate<StreamElement>>[] oldDeserializer =
+        //                Arrays.copyOf(recordDeserializers, recordDeserializers.length);
+        //        recordDeserializers = new
+        // SpillingAdaptiveSpanningRecordDeserializer[numInputChannels];
+        //
+        //        for (int i = 0; i < recordDeserializers.length; i++) {
+        //            if (i < oldDeserializer.length) {
+        //                recordDeserializers[i] = oldDeserializer[i];
+        //            } else {
+        //                recordDeserializers[i] = new SpillingAdaptiveSpanningRecordDeserializer<>(
+        //                        ioManager.getSpillingDirectoriesPaths());
+        //            }
+        //        }
+        //
+        for (InputChannelInfo i : checkpointedInputGate.getChannelInfos()) {
+            if (!recordDeserializers.containsKey(i)) {
+                recordDeserializers.put(
+                        i,
+                        new SpillingAdaptiveSpanningRecordDeserializer<>(
+                                ioManager.getSpillingDirectoriesPaths()));
+            }
+        }
+
+        statusWatermarkValve.rescale(numInputChannels);
+        checkpointedInputGate.updateHandlerBufferChannels(numInputChannels);
     }
 }

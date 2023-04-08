@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
 
@@ -151,7 +152,7 @@ public class SingleInputGate extends IndexedInputGate {
     private final Map<SubpartitionInfo, InputChannel> inputChannels;
 
     @GuardedBy("requestLock")
-    private final InputChannel[] channels;
+    private InputChannel[] channels;
 
     /** Channels, which notified this input gate about available data. */
     private final PrioritizedDeque<InputChannel> inputChannelsWithData = new PrioritizedDeque<>();
@@ -535,6 +536,12 @@ public class SingleInputGate extends IndexedInputGate {
                             + channels.length);
         }
         synchronized (requestLock) {
+            //                            LOG.info(
+            //                                    "!!!!!!!!!! The channel info is: new channel
+            // length: " + channels.length +
+            //                                    " original channel length: " +
+            // this.channels.length + " num of channels: " + numberOfInputChannels);
+            this.channels = new InputChannel[numberOfInputChannels];
             System.arraycopy(channels, 0, this.channels, 0, numberOfInputChannels);
             for (InputChannel inputChannel : channels) {
                 IntermediateResultPartitionID partitionId =
@@ -1107,11 +1114,12 @@ public class SingleInputGate extends IndexedInputGate {
         this.subpartitionIndexRange = newRange;
     }
 
-    public void reset(int numberOfInputChannels) {
+    public void reset(int numberOfInputChannels, Set<Integer> oldChannelIndexSet) {
         synchronized (requestLock) {
             for (InputChannel inputChannel : inputChannels.values()) {
                 try {
                     inputChannel.releaseAllResources();
+                    oldChannelIndexSet.add(inputChannel.getChannelIndex());
                 } catch (IOException e) {
                     LOG.warn(
                             "{}: Error during release of channel resources: {}.",

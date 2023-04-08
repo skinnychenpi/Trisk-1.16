@@ -75,7 +75,6 @@ public class StreamIterationHead<OUT> extends OneInputStreamTask<OUT, OUT> {
                 shouldWait
                         ? dataChannel.poll(iterationWaitTime, TimeUnit.MILLISECONDS)
                         : dataChannel.take();
-
         if (nextRecord != null) {
             for (RecordWriterOutput<OUT> output : streamOutputs) {
                 output.collect(nextRecord);

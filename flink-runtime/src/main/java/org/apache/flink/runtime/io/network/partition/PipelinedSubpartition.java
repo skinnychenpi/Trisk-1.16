@@ -536,10 +536,24 @@ public class PipelinedSubpartition extends ResultSubpartition
                     buffer,
                     parent.getOwningTaskName(),
                     subpartitionInfo);
+
+            // !!!!!!!!!!!!!!!!!!!!! TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//            if (parent.getOwningTaskName().contains("6/10")) {
+//                LOG.info(
+//                        "%%%%%%% [{}] {} {} @ {}",
+//                        parent.getOwningTaskName(),
+//                        "PipelinedSubpartition#pollBuffer",
+//                        buffer.toDebugString(true),
+//                        subpartitionInfo);
+//            }
+            // !!!!!!!!!!!!!!!!!!!!! TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
             return new BufferAndBacklog(
                     buffer,
                     getBuffersInBacklogUnsafe(),
-                    isDataAvailableUnsafe() ? getNextBufferTypeUnsafe() : Buffer.DataType.NONE,
+                    isDataAvailableUnsafe()
+                            ? getNextBufferTypeUnsafe()
+                            : Buffer.DataType.NONE, // Here, the data is blocked!
                     sequenceNumber++);
         }
     }

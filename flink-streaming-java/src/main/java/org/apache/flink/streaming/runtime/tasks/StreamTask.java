@@ -1887,7 +1887,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                         if (rescaleManager.isScalingPartitions()) {
                             replaceResultPartitions(rescaleManager);
                         }
-
+                        reconnect();
                     } catch (Exception e) {
                         e.printStackTrace();
                         LOG.info("++++++ error", e);
@@ -1990,4 +1990,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     public KeyGroupRange getAssignedKeyGroupRange() {
         return assignedKeyGroupRange;
     }
+
+    protected void reconnect() {}
 }

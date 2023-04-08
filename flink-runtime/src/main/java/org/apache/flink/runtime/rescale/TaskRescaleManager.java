@@ -48,7 +48,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -176,16 +178,22 @@ public class TaskRescaleManager {
                 calculateNumChannels(
                         shuffleDescriptors.length, inputGate.getSubpartitionIndexRange());
         LOG.info("!!!!!!!!!! The number of new channel is: " + numOfNewChannels);
-        inputGate.reset(numOfNewChannels);
 
-        createChannels(inputGate, shuffleDescriptors);
+        // Trisk 1.16 logic : This set will only be used in scale out.
+        Set<Integer> oldChannelIndexSet = new HashSet<>();
+        inputGate.reset(numOfNewChannels, oldChannelIndexSet);
+
+        createChannels(inputGate, shuffleDescriptors, oldChannelIndexSet);
         // Not needed for Flink 1.16.
-        //        inputGate.assignExclusiveSegments();
+        // inputGate.assignExclusiveSegments();
         inputGate.setupChannels();
         inputGate.requestPartitions();
     }
 
-    private void createChannels(SingleInputGate inputGate, ShuffleDescriptor[] shuffleDescriptors) {
+    private void createChannels(
+            SingleInputGate inputGate,
+            ShuffleDescriptor[] shuffleDescriptors,
+            Set<Integer> oldChannelIndexSet) {
         @SuppressWarnings("deprecation")
         InputChannelMetrics inputChannelMetrics =
                 new InputChannelMetrics(
@@ -210,6 +218,9 @@ public class TaskRescaleManager {
                                 subpartitionIndex,
                                 inputChannelMetrics);
                 inputChannels[channelIdx] = inputChannel;
+                if (!oldChannelIndexSet.contains(channelIdx)) {
+                    inputChannel.flagAsNewCreatedChannel();
+                }
                 channelIdx++;
             }
         }
@@ -349,6 +360,8 @@ public class TaskRescaleManager {
         }
         rescaleMeta = meta;
     }
+
+    public void resumeConsumptionAfterRescale() {}
 
     private static class TaskRescaleMeta {
         private final RescaleID rescaleId;

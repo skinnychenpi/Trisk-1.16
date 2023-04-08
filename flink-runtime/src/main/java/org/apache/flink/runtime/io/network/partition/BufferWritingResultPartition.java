@@ -152,12 +152,13 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
     @Override
     public void emitRecord(ByteBuffer record, int targetSubpartition) throws IOException {
         totalWrittenBytes += record.remaining();
-
+        // 这里会调用addToSubpartition,从而调用subpartition的add函数，从而把数据加入到srp的buffer中。
         BufferBuilder buffer = appendUnicastDataForNewRecord(record, targetSubpartition);
 
         while (record.hasRemaining()) {
             // full buffer, partial record
             finishUnicastBufferBuilder(targetSubpartition);
+            // 这里也会调用addToSubpartition,从而调用subpartition的add函数，从而把数据加入到srp的buffer中。
             buffer = appendUnicastDataForRecordContinuation(record, targetSubpartition);
         }
 

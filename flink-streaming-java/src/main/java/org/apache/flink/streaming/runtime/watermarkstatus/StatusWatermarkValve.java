@@ -45,7 +45,7 @@ public class StatusWatermarkValve {
      * Array of current status of all input channels. Changes as watermarks & watermark statuses are
      * fed into the valve.
      */
-    private final InputChannelStatus[] channelStatuses;
+    private InputChannelStatus[] channelStatuses;
 
     /** The last watermark emitted from the valve. */
     private long lastOutputWatermark;
@@ -253,5 +253,23 @@ public class StatusWatermarkValve {
                 "Invalid channel index. Number of input channels: " + channelStatuses.length);
 
         return channelStatuses[channelIndex];
+    }
+
+    // Trisk 1.16 methods
+    public void rescale(int newNumInputChannels) {
+        InputChannelStatus[] newChannelStatuses = new InputChannelStatus[newNumInputChannels];
+
+        for (int i = 0; i < newNumInputChannels; i++) {
+            if (i < channelStatuses.length) {
+                newChannelStatuses[i] = channelStatuses[i];
+            } else {
+                newChannelStatuses[i] = new InputChannelStatus();
+                newChannelStatuses[i].watermark = Long.MIN_VALUE;
+                newChannelStatuses[i].watermarkStatus = WatermarkStatus.ACTIVE;
+                newChannelStatuses[i].isWatermarkAligned = true;
+            }
+        }
+
+        channelStatuses = newChannelStatuses;
     }
 }

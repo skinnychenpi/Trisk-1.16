@@ -390,4 +390,9 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
                             checkpointId, alignedChannels.size(), targetChannelCount);
         }
     }
+
+    @Override
+    public void updateTotalNumberOfInputChannels(int newNumberOfInputChannels) {
+        this.numOpenChannels = newNumberOfInputChannels;
+    }
 }

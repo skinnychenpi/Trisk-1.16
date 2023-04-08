@@ -163,4 +163,8 @@ public class ResultPartitionManager implements ResultPartitionProvider {
             }
         }
     }
+
+    public ResultPartition queryPartitionByPartitionID(ResultPartitionID resultPartitionID) {
+        return registeredPartitions.get(resultPartitionID);
+    }
 }

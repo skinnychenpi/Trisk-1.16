@@ -87,4 +87,13 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
     public void close() throws IOException {
         input.close();
     }
+
+    public void reconnect() {
+        // create a new deserializer with new num of input
+        // update watermark related things
+        // update num of input in barrier buffer
+        if (input instanceof StreamTaskNetworkInput) {
+            ((StreamTaskNetworkInput) input).reconnect();
+        }
+    }
 }

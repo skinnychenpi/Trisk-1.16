@@ -79,6 +79,9 @@ public abstract class InputChannel {
     /** The current backoff (in ms). */
     private int currentBackoff;
 
+    // Trisk 1.16 attribute
+    protected boolean newCreatedChannelAfterRescale = false;
+
     protected InputChannel(
             SingleInputGate inputGate,
             int channelIndex,
@@ -309,6 +312,14 @@ public abstract class InputChannel {
 
     public long unsynchronizedGetSizeOfQueuedBuffers() {
         return 0;
+    }
+
+    public void flagAsNewCreatedChannel() {
+        newCreatedChannelAfterRescale = true;
+    }
+
+    public void unflagAsNewCreatedChannel() {
+        newCreatedChannelAfterRescale = false;
     }
 
     // ------------------------------------------------------------------------

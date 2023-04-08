@@ -109,6 +109,12 @@ public interface TaskInvokable {
                         "updateOperatorConfig not supported by %s", this.getClass().getName()));
     }
 
+    default void resumeGateConsumptionAfterRescale() {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "updateOperatorConfig not supported by %s", this.getClass().getName()));
+    }
+
     default void reinitializeState(KeyGroupRange keyGroupRange, int idInModel) {
         throw new UnsupportedOperationException(
                 String.format("reinitializeState not supported by %s", this.getClass().getName()));

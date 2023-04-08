@@ -516,4 +516,9 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
                     barrierId, checkpointBarrier.getCheckpointOptions());
         }
     }
+
+    // Trisk 1.16
+    public void updateTotalNumberOfInputChannels(int numInputChannels) {
+        this.numOpenChannels = numInputChannels;
+    }
 }

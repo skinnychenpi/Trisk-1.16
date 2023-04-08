@@ -544,23 +544,23 @@ public class ReconfigurationCoordinator extends AbstractCoordinator {
             //  but this can be resolved by calling resume for all blocked tasks again after all
             // update completed
             Map<Integer, Diff> diffMap = diff.get(targetOperatorID);
-            if (diffMap.containsKey(AbstractCoordinator.KEY_MAPPING)
-                    || diffMap.containsKey(AbstractCoordinator.UDF)) {
-                if (remappingAssignment.isScaling()) {
-                    try { // update partition and downstream gates if there are tasks to be scaled
-                        // out/in
-                        updatePartitions(targetOperatorID, rescaleID)
-                                // downstream gates need to find out the upstream partitions, do not
-                                // update downstream gates before upstream has updated
-                                //						.thenCompose(o -> updateDownstreamGates(targetOperatorID))
-                                .thenAccept(o -> syncOp.resumeTasks(notModifiedList));
-                    } catch (ExecutionGraphException e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    syncOp.resumeTasks(notModifiedList);
+            //            if (diffMap.containsKey(AbstractCoordinator.KEY_MAPPING)
+            //                    || diffMap.containsKey(AbstractCoordinator.UDF)) {
+            if (remappingAssignment.isScaling()) {
+                try { // update partition and downstream gates if there are tasks to be scaled
+                    // out/in
+                    updatePartitions(targetOperatorID, rescaleID)
+                            // downstream gates need to find out the upstream partitions, do not
+                            // update downstream gates before upstream has updated
+                            //						.thenCompose(o -> updateDownstreamGates(targetOperatorID))
+                            .thenAccept(o -> syncOp.resumeTasks(notModifiedList));
+                } catch (ExecutionGraphException e) {
+                    e.printStackTrace();
                 }
+            } else {
+                syncOp.resumeTasks(notModifiedList);
             }
+            //            }
 
             CompletableFuture<Void> finishFuture =
                     FutureUtils.completeAll(rescaleCandidatesFutures);

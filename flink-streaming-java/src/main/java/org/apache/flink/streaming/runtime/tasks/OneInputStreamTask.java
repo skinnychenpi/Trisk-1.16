@@ -26,6 +26,8 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.rescale.TaskRescaleManager;
+import org.apache.flink.runtime.taskmanager.RuntimeEnvironment;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
@@ -212,6 +214,20 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
             networkInput.setPauseActionController(this.pauseActionController);
         }
         return networkInput;
+    }
+
+    @Override
+    public void reconnect() {
+        TaskRescaleManager rescaleManager =
+                ((RuntimeEnvironment) getEnvironment()).taskRescaleManager;
+
+        if (!rescaleManager.isScalingTarget()) {
+            return;
+        }
+
+        if (rescaleManager.isScalingGates()) {
+            ((StreamOneInputProcessor) inputProcessor).reconnect();
+        }
     }
 
     /**

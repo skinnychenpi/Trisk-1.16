@@ -39,8 +39,8 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 
     public PipelinedSubpartitionView(
             PipelinedSubpartition parent, BufferAvailabilityListener listener) {
-        this.parent = checkNotNull(parent);
-        this.availabilityListener = checkNotNull(listener);
+        this.parent = checkNotNull(parent); // 这个是对应的result subpartition
+        this.availabilityListener = checkNotNull(listener); // 这个就是下游对应的input channel
         this.isReleased = new AtomicBoolean();
     }
 

@@ -83,11 +83,18 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     /** add a metrics manager to get true processing rate */
     protected MetricsManager metricsManager;
 
+    // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
+//    private String taskName;
+    // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
+
     RecordWriter(ResultPartitionWriter writer, long timeout, String taskName) {
         this.targetPartition = writer;
         this.numberOfChannels = writer.getNumberOfSubpartitions();
 
         this.serializer = new DataOutputSerializer(128);
+        // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
+//        this.taskName = taskName;
+        // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         checkArgument(timeout >= ExecutionOptions.DISABLED_NETWORK_BUFFER_TIMEOUT);
         this.flushAlways = (timeout == ExecutionOptions.FLUSH_AFTER_EVERY_RECORD);
@@ -106,6 +113,15 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     }
 
     protected void emit(T record, int targetSubpartition) throws IOException {
+        // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
+        //        SerializationDelegate<T> delegate = (SerializationDelegate<T>) record;
+        //        if (targetSubpartition == 5) {
+        //            LOG.info("########## From Source to SF(6/10): " + delegate.getInstance());
+        //        }
+        //        if (this.taskName.contains("6")) {
+        //            LOG.info("%%%%%%%%%% From SF(6/10) to FM: " + delegate.getInstance());
+        //        }
+        // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
         checkErroneous();
         targetPartition.emitRecord(serializeRecord(serializer, record), targetSubpartition);
 

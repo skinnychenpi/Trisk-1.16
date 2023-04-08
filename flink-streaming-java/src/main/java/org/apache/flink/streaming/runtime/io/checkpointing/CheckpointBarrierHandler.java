@@ -212,4 +212,9 @@ public abstract class CheckpointBarrierHandler implements Closeable {
     protected final Clock getClock() {
         return clock;
     }
+
+    public void updateTotalNumberOfInputChannels(int numInputChannels) {
+        throw new IllegalArgumentException(
+                "updateTotalNumberOfInputChannels is not supported now.");
+    }
 }

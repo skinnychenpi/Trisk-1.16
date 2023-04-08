@@ -156,6 +156,9 @@ public class ExecutionVertex
         this.currentExecution = createNewExecution(createTimestamp);
 
         getExecutionGraphAccessor().registerExecution(currentExecution);
+
+        this.rescaleId = RescaleID.DEFAULT;
+        this.idInModel = subTaskIndex;
     }
 
     // --------------------------------------------------------------------------------------------

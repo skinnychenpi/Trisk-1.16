@@ -165,7 +165,8 @@ public class TaskDeploymentDescriptorFactoryTest extends TestLogger {
             throws IOException, ClusterDatasetCorruptedException {
 
         return TaskDeploymentDescriptorFactory.fromExecution(ev.getCurrentExecutionAttempt())
-                .createDeploymentDescriptor(new AllocationID(), null, Collections.emptyList());
+                .createDeploymentDescriptor(
+                        new AllocationID(), null, Collections.emptyList(), false);
     }
 
     public static ShuffleDescriptor[] deserializeShuffleDescriptors(

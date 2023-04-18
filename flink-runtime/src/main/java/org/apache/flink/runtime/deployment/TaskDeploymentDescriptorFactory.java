@@ -39,6 +39,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobType;
+import org.apache.flink.runtime.rescale.RescaleID;
 import org.apache.flink.runtime.scheduler.ClusterDatasetCorruptedException;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
@@ -113,7 +114,8 @@ public class TaskDeploymentDescriptorFactory {
     public TaskDeploymentDescriptor createDeploymentDescriptor(
             AllocationID allocationID,
             @Nullable JobManagerTaskRestore taskRestore,
-            Collection<ResultPartitionDeploymentDescriptor> producedPartitions)
+            Collection<ResultPartitionDeploymentDescriptor> producedPartitions,
+            boolean isScheduleRescale)
             throws IOException {
         TaskDeploymentDescriptor tdd =
                 new TaskDeploymentDescriptor(
@@ -124,14 +126,14 @@ public class TaskDeploymentDescriptorFactory {
                         allocationID,
                         taskRestore,
                         new ArrayList<>(producedPartitions),
-                        createInputGateDeploymentDescriptors());
+                        createInputGateDeploymentDescriptors(isScheduleRescale));
         tdd.setIdInModel(idInModel);
         tdd.setKeyGroupRange(keyGroupRange);
         return tdd;
     }
     // This function helps to create the input gate of the current Task(EV/Execution/Subtask)
-    private List<InputGateDeploymentDescriptor> createInputGateDeploymentDescriptors()
-            throws IOException {
+    private List<InputGateDeploymentDescriptor> createInputGateDeploymentDescriptors(
+            boolean isScheduleRescale) throws IOException {
         List<InputGateDeploymentDescriptor> inputGates =
                 new ArrayList<>(consumedPartitionGroups.size());
         // A single ConsumedPartitionGroup is essentially a list of IRPs from current EV's upstream.
@@ -167,7 +169,9 @@ public class TaskDeploymentDescriptorFactory {
                             partitionType,
                             consumedSubpartitionRange,
                             getConsumedPartitionShuffleDescriptors(
-                                    consumedIntermediateResult, consumedPartitionGroup)));
+                                    consumedIntermediateResult,
+                                    consumedPartitionGroup,
+                                    isScheduleRescale)));
         }
 
         for (Map.Entry<IntermediateDataSetID, ShuffleDescriptor[]> entry :
@@ -231,16 +235,23 @@ public class TaskDeploymentDescriptorFactory {
     }
 
     private MaybeOffloaded<ShuffleDescriptor[]> getConsumedPartitionShuffleDescriptors(
-            IntermediateResult intermediateResult, ConsumedPartitionGroup consumedPartitionGroup)
+            IntermediateResult intermediateResult,
+            ConsumedPartitionGroup consumedPartitionGroup,
+            boolean isScheduleRescale)
             throws IOException {
         MaybeOffloaded<ShuffleDescriptor[]> serializedShuffleDescriptors =
                 intermediateResult.getCachedShuffleDescriptors(consumedPartitionGroup);
-        if (serializedShuffleDescriptors == null) {
+        if (serializedShuffleDescriptors == null || isScheduleRescale) {
             serializedShuffleDescriptors =
                     computeConsumedPartitionShuffleDescriptors(consumedPartitionGroup);
             intermediateResult.cacheShuffleDescriptors(
                     consumedPartitionGroup, serializedShuffleDescriptors);
         }
+
+        //        MaybeOffloaded<ShuffleDescriptor[]> serializedShuffleDescriptors =
+        //                computeConsumedPartitionShuffleDescriptors(consumedPartitionGroup);
+        //        intermediateResult.cacheShuffleDescriptors(
+        //                consumedPartitionGroup, serializedShuffleDescriptors);
         return serializedShuffleDescriptors;
     }
 
@@ -366,12 +377,23 @@ public class TaskDeploymentDescriptorFactory {
             PartitionLocationConstraint partitionDeploymentConstraint) {
         Execution producer = consumedPartition.getProducer().getPartitionProducer();
 
+        RescaleID rescaleID = consumedPartition.getProducer().getRescaleId(); // !!!!!!!!
+        System.out.println(
+                "#########@TDDFactory: For IRP of "
+                        + consumedPartition.getProducer().getTaskName()
+                        + " with Rescale ID: "
+                        + rescaleID);
+
         ExecutionState producerState = producer.getState();
         Optional<ResultPartitionDeploymentDescriptor> consumedPartitionDescriptor =
                 producer.getResultPartitionDeploymentDescriptor(consumedPartition.getPartitionId());
 
         ResultPartitionID consumedPartitionId =
-                new ResultPartitionID(consumedPartition.getPartitionId(), producer.getAttemptId());
+                new ResultPartitionID(
+                        consumedPartition.getPartitionId(), producer.getAttemptId(), rescaleID);
+        //        ResultPartitionID consumedPartitionId =
+        //                new ResultPartitionID(consumedPartition.getPartitionId(),
+        // producer.getAttemptId());
 
         return getConsumedPartitionShuffleDescriptor(
                 consumedPartitionId,

@@ -577,7 +577,8 @@ public class Execution
                             .createDeploymentDescriptor(
                                     slot.getAllocationId(),
                                     taskRestore,
-                                    producedPartitions.values());
+                                    producedPartitions.values(),
+                                    false);
 
             // null taskRestore to let it be GC'ed
             taskRestore = null;
@@ -1719,7 +1720,8 @@ public class Execution
                             .createDeploymentDescriptor(
                                     slot.getAllocationId(),
                                     sendTaskRestore,
-                                    producedPartitions.values());
+                                    producedPartitions.values(),
+                                    true);
             // null taskRestore to let it be GC'ed
             // only after repartition should the state being GC'ed
             if (rescaleOptions.isRepartition()) {

@@ -628,6 +628,8 @@ public class DummyController extends AbstractController {
                 //					i++;
                 //				}
                 //				measureFunctionUpdate(statefulOpID);
+                //                rescaleV2(statefulOpID, 10);
+
                 rescaleV2(statefulOpID, 10);
                 //				sleep(100);
                 //				rescaleV2(statefulOpID, 5);

@@ -84,7 +84,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     protected MetricsManager metricsManager;
 
     // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
-//    private String taskName;
+    //    private String taskName;
     // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
 
     RecordWriter(ResultPartitionWriter writer, long timeout, String taskName) {
@@ -93,7 +93,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
         this.serializer = new DataOutputSerializer(128);
         // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
-//        this.taskName = taskName;
+        //        this.taskName = taskName;
         // !!!!!!!!!!!!!!!!!!!!!!!  TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         checkArgument(timeout >= ExecutionOptions.DISABLED_NETWORK_BUFFER_TIMEOUT);

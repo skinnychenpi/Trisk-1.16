@@ -538,14 +538,15 @@ public class PipelinedSubpartition extends ResultSubpartition
                     subpartitionInfo);
 
             // !!!!!!!!!!!!!!!!!!!!! TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//            if (parent.getOwningTaskName().contains("6/10")) {
-//                LOG.info(
-//                        "%%%%%%% [{}] {} {} @ {}",
-//                        parent.getOwningTaskName(),
-//                        "PipelinedSubpartition#pollBuffer",
-//                        buffer.toDebugString(true),
-//                        subpartitionInfo);
-//            }
+            //            if (parent.getOwningTaskName().contains("Source")) {
+            //                LOG.info(
+            //                        "%%%%%%% [{}] {} {} @ {} with status: {}",
+            //                        parent.getOwningTaskName(),
+            //                        "PipelinedSubpartition#pollBuffer",
+            //                        buffer.toDebugString(true),
+            //                        subpartitionInfo,
+            //                        shouldNotifyDataAvailable());
+            //            }
             // !!!!!!!!!!!!!!!!!!!!! TEST ONLY  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
             return new BufferAndBacklog(
